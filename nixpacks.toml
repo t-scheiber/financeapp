@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "bun"]
+
+[phases.install]
+cmds = [
+  "bun install",
+  "bunx prisma generate"
+]
+
+[phases.build]
+cmds = [
+  "bun run build"
+]
+
+[start]
+cmd = "bun run start"
+
+[variables]
+NODE_ENV = "production"
+PORT = "3000"
+
