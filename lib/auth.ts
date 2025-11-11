@@ -23,7 +23,7 @@ export const auth = betterAuth({
   },
   trustedOrigins: ["https://appleid.apple.com"],
   secret: process.env.AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET ?? "",
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   basePath: "/api/auth",
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days

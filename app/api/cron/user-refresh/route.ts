@@ -6,7 +6,7 @@ import { notifyBreakingNews } from "@/lib/services/notifications";
 import { SentimentAPI } from "@/lib/services/sentiment-api";
 import { getUserApiKey } from "@/lib/services/user-api-keys";
 
-// For NextAuth v5 compatibility in cron jobs (no session context)
+// Helper function for cron jobs (no session context)
 async function getDemoUserEmail(): Promise<string> {
   // In a real implementation, this would get the user from a job parameter
   // For now, return the demo user

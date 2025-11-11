@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 
 /**
  * Get the current session on the server
- * This replaces the old auth() function from NextAuth
  * Returns null if session is invalid or expired
  */
 export async function getServerSession() {

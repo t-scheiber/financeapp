@@ -122,7 +122,7 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
    APPLE_APP_BUNDLE_IDENTIFIER=com.yourcompany.yourapp  # Optional, for native iOS
    AUTH_SECRET=your-auth-secret
    BETTER_AUTH_SECRET=your-auth-secret  # Can use AUTH_SECRET or BETTER_AUTH_SECRET
-   BETTER_AUTH_URL=http://localhost:3000  # Optional, defaults to NEXTAUTH_URL
+   BETTER_AUTH_URL=http://localhost:3000  # Optional, defaults to NEXT_PUBLIC_APP_URL
 
    # Email allowlist (production recommended)
    ALLOWED_EMAILS=user@example.com,admin@company.org
@@ -147,8 +147,8 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
    SMTP_FROM="FinanceApp <alerts@yourdomain.com>"
 
    # Next.js / Better Auth
-   NEXTAUTH_URL=http://localhost:3000
    NEXT_PUBLIC_APP_URL=http://localhost:3000  # For Better Auth client
+   BETTER_AUTH_URL=http://localhost:3000  # Optional, defaults to NEXT_PUBLIC_APP_URL
    ```
 
 3. **Database migrations**
