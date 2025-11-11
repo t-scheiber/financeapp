@@ -13,9 +13,8 @@ cmds = [
 ]
 
 [start]
-cmd = "bun run start"
+cmd = "bunx next start -H 0.0.0.0"
 
 [variables]
 NODE_ENV = "production"
-PORT = "3000"
 
