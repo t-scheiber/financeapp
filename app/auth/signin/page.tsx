@@ -1,10 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import { signIn } from "@/lib/auth-client";
+import { signIn, useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function SignIn() {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    // If user is already signed in, redirect to dashboard
+    if (session) {
+      router.push("/");
+    }
+  }, [session, router]);
+
   const handleGoogleSignIn = async () => {
     await signIn.social({
       provider: "google",

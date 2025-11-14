@@ -40,66 +40,40 @@ model User {
 // Better Auth Account model
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  accountId             String    @db.Text
-  providerId            String    @db.Text
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String    @unique @db.VarChar(255)
+  providerId            String    @db.VarChar(255)
   accessToken           String?   @db.Text
   refreshToken          String?   @db.Text
   idToken               String?   @db.Text
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
   password              String?   @db.Text
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  @@unique([provider, providerAccountId])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("accounts")
 }
 
 // Better Auth Session model
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  userId    String
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?  @db.Text
   userAgent String?  @db.Text
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("sessions")
-  @@unique([token])
-}
-
-// Better Auth Verification Token model
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verificationtokens")
 }
 
 // Companies to monitor

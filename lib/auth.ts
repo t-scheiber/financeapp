@@ -14,11 +14,13 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.AUTH_GOOGLE_ID ?? "",
       clientSecret: process.env.AUTH_GOOGLE_SECRET ?? "",
+      redirectURI: `${process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/auth/callback/google`,
     },
     apple: {
       clientId: process.env.APPLE_CLIENT_ID ?? "",
       clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
       appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER,
+      redirectURI: `${process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/auth/callback/apple`,
     },
   },
   trustedOrigins: ["https://appleid.apple.com"],
@@ -28,6 +30,15 @@ export const auth = betterAuth({
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours
+  },
+  advanced: {
+    useSecureCookies: false, // Set to false for localhost development
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      path: "/",
+      httpOnly: true,
+      secure: false, // Must be false for localhost HTTP
+    },
   },
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
