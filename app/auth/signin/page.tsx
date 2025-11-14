@@ -20,14 +20,12 @@ export default function SignIn() {
   const handleGoogleSignIn = async () => {
     await signIn.social({
       provider: "google",
-      callbackURL: "/",
     });
   };
 
   const handleAppleSignIn = async () => {
     await signIn.social({
       provider: "apple",
-      callbackURL: "/",
     });
   };
 

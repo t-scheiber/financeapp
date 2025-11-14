@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getCookieCache } from "better-auth/cookies";
 
 export default async function proxy(req: NextRequest) {
-  const session = await getCookieCache(req);
-  const isLoggedIn = !!session?.user;
+  // Check if the session cookie exists
+  const sessionCookie = req.cookies.get("better-auth.session_token");
+  const isLoggedIn = !!sessionCookie;
   const pathname = req.nextUrl.pathname;
 
   // Public routes that don't require authentication
