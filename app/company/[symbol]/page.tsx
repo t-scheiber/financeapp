@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Building2,
+  Copy,
   DollarSign,
   Info,
   Loader2,
@@ -23,6 +24,7 @@ import { StockChart } from "@/components/stock-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   HoverCard,
   HoverCardContent,
@@ -123,9 +125,10 @@ function getSentimentIcon(sentiment?: string) {
 export default function CompanyPage({
   params,
 }: {
-  params: { symbol: string };
+  params: Promise<{ symbol: string }>;
 }) {
   const { toggles: featureToggles } = useFeatureToggles();
+  const [symbol, setSymbol] = useState<string | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [stockPrices, setStockPrices] = useState<StockPrice[]>([]);
   const [dividends, setDividends] = useState<Dividend[]>([]);
@@ -133,6 +136,7 @@ export default function CompanyPage({
   const [dividendsError, setDividendsError] = useState<string | null>(null);
   const [dividendsLoaded, setDividendsLoaded] = useState(false);
   const [news, setNews] = useState<News[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forecast, setForecast] = useState<ForecastPoint[] | null>(null);
@@ -159,6 +163,41 @@ export default function CompanyPage({
   const formatPercent = (value: number) =>
     `${Number.isFinite(value) ? (value * 100).toFixed(2) : "0.00"}%`;
 
+  const handleRefreshNews = useCallback(async () => {
+    if (!company) return;
+
+    setNewsLoading(true);
+    try {
+      const newsRes = await fetch(
+        `/api/news?companyId=${company.id}&refresh=true`,
+      );
+      if (newsRes.ok) {
+        const newsData = await newsRes.json();
+        setNews(newsData);
+        if (newsData.length > 0) {
+          toast.success("News refreshed", {
+            description: `Found ${newsData.length} article${newsData.length === 1 ? "" : "s"} for ${company.name}`,
+          });
+        } else {
+          toast.info("No news found", {
+            description: `No recent articles found for ${company.name}`,
+          });
+        }
+      } else {
+        toast.error("Failed to refresh news", {
+          description: "Please try again later",
+        });
+      }
+    } catch (error) {
+      console.error("Error refreshing news:", error);
+      toast.error("Failed to refresh news", {
+        description: "An unexpected error occurred",
+      });
+    } finally {
+      setNewsLoading(false);
+    }
+  }, [company]);
+
   const handleLoadDividends = useCallback(async () => {
     if (!company) {
       return;
@@ -166,6 +205,10 @@ export default function CompanyPage({
 
     setDividendsLoading(true);
     setDividendsError(null);
+    
+    toast.loading("Loading dividend data...", {
+      id: "dividends-loading",
+    });
 
     try {
       const response = await fetch(`/api/companies/${company.id}/dividends`);
@@ -243,15 +286,33 @@ export default function CompanyPage({
 
       setDividends(normalisedDividends);
       setDividendsLoaded(true);
+      toast.success("Dividends loaded", {
+        id: "dividends-loading",
+        description: `Found ${normalisedDividends.length} dividend${normalisedDividends.length === 1 ? "" : "s"}`,
+      });
     } catch (error) {
       console.error("Error loading dividends:", error);
       setDividendsError("Unexpected error fetching dividends.");
+      toast.error("Failed to load dividends", {
+        id: "dividends-loading",
+        description: "Please try again later",
+      });
     } finally {
       setDividendsLoading(false);
     }
   }, [company]);
 
   useEffect(() => {
+    const initializeParams = async () => {
+      const resolvedParams = await params;
+      setSymbol(resolvedParams.symbol);
+    };
+    initializeParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!symbol) return;
+
     const fetchCompanyData = async () => {
       try {
         // Fetch company info
@@ -260,7 +321,7 @@ export default function CompanyPage({
 
         const companies: Company[] = await companiesRes.json();
         const foundCompany = companies.find(
-          (c) => c.symbol === params.symbol.toUpperCase(),
+          (c) => c.symbol === symbol.toUpperCase(),
         );
 
         if (!foundCompany) {
@@ -295,12 +356,15 @@ export default function CompanyPage({
       } catch (err) {
         console.error("Error fetching company data:", err);
         setError("Failed to load company data");
+        toast.error("Failed to load company data", {
+          description: "Unable to fetch company information. Please try refreshing the page.",
+        });
         setLoading(false);
       }
     };
 
     fetchCompanyData();
-  }, [params.symbol]);
+  }, [symbol]);
 
   useEffect(() => {
     const companyId = company?.id;
@@ -480,20 +544,30 @@ export default function CompanyPage({
       {/* Company Header */}
       <div className="mb-8">
         <div className="mb-2 flex flex-wrap items-center gap-3">
-          <Building2 className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
+          <Building2 className="h-8 w-8 text-accent" />
+          <h1 className="text-3xl font-bold text-foreground">{company.name}</h1>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="px-3 py-1 text-base">
               {company.symbol}
             </Badge>
             {company.isin ? (
-              <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-[0.35rem] text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(company.isin!);
+                  toast.success("ISIN copied", {
+                    description: `${company.isin} copied to clipboard`,
+                  });
+                }}
+                className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-[0.35rem] text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                title="Click to copy ISIN"
+              >
                 {company.isin}
-              </span>
+                <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
             ) : null}
           </div>
         </div>
-        <div className="flex items-center space-x-4 text-sm text-gray-600">
+        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
           <span>
             <span className="font-medium">Sector:</span>{" "}
             {company.sector || "N/A"}
@@ -505,7 +579,7 @@ export default function CompanyPage({
           </span>
         </div>
         {company.description && (
-          <p className="mt-3 text-gray-700">{company.description}</p>
+          <p className="mt-3 text-foreground/90">{company.description}</p>
         )}
       </div>
 
@@ -751,7 +825,7 @@ export default function CompanyPage({
                     ([symbol, value]) => (
                       <div
                         key={symbol}
-                        className="rounded-xl border border-border/50 bg-white px-3 py-2"
+                        className="rounded-xl border border-border/50 bg-card px-3 py-2 dark:bg-card/80"
                       >
                         <span className="font-semibold text-foreground">
                           {symbol}
@@ -849,15 +923,15 @@ export default function CompanyPage({
 
       {/* Latest Price Highlight */}
       {latestPrice ? (
-        <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <Card className="mb-8 bg-gradient-to-r from-accent/10 to-accent/5 dark:from-accent/20 dark:to-accent/10">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Current Price</p>
-                <p className="text-4xl font-bold text-gray-900">
+                <p className="text-sm text-muted-foreground mb-1">Current Price</p>
+                <p className="text-4xl font-bold text-foreground">
                   ${latestPrice.close.toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-muted-foreground/80 mt-1">
                   {new Date(latestPrice.date).toLocaleDateString("en-US", {
                     weekday: "long",
                     year: "numeric",
@@ -895,8 +969,8 @@ export default function CompanyPage({
               )}
             </div>
             {latestPrice.volume && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-600">
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
                   Volume:{" "}
                   <span className="font-semibold">
                     {latestPrice.volume.toLocaleString()}
@@ -935,17 +1009,17 @@ export default function CompanyPage({
                   return (
                     <div
                       key={price.id}
-                      className="p-3 border rounded-lg hover:bg-gray-50"
+                      className="p-3 border rounded-lg hover:bg-muted/50 dark:hover:bg-muted/30"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {new Date(price.date).toLocaleDateString()}
                         </span>
                         <span className="text-lg font-bold">
                           ${price.close.toFixed(2)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground/80">
                         <div className="space-x-3">
                           {price.open && (
                             <span>Open: ${price.open.toFixed(2)}</span>
@@ -977,7 +1051,7 @@ export default function CompanyPage({
                 })}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">
+              <p className="text-muted-foreground text-center py-8">
                 No price history available
               </p>
             )}
@@ -986,16 +1060,35 @@ export default function CompanyPage({
 
         {/* News */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Latest News</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshNews}
+              disabled={newsLoading || !company}
+            >
+              {newsLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Fetching...
+                </>
+              ) : (
+                "Refresh News"
+              )}
+            </Button>
           </CardHeader>
           <CardContent>
-            {news.length > 0 ? (
+            {newsLoading && news.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : news.length > 0 ? (
               <div className="space-y-4">
                 {news.map((article) => (
                   <div
                     key={article.id}
-                    className="p-4 border rounded-lg hover:bg-gray-50"
+                    className="p-4 border rounded-lg hover:bg-muted/50 dark:hover:bg-muted/30"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-semibold text-sm leading-tight flex-1">
@@ -1011,11 +1104,11 @@ export default function CompanyPage({
                       )}
                     </div>
                     {article.summary && (
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-3">
+                      <p className="text-xs text-muted-foreground mb-3 line-clamp-3">
                         {article.summary}
                       </p>
                     )}
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground/80 mb-2">
                       <span className="font-medium">{article.source}</span>
                       <span>
                         {new Date(article.publishedAt).toLocaleDateString()}
@@ -1024,7 +1117,7 @@ export default function CompanyPage({
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 h-auto text-xs text-blue-600"
+                      className="p-0 h-auto text-xs text-accent hover:text-accent/80"
                       onClick={() => window.open(article.url, "_blank")}
                     >
                       Read full article
@@ -1033,9 +1126,26 @@ export default function CompanyPage({
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">
-                No news available
-              </p>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">
+                  No news available for this company yet
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshNews}
+                  disabled={newsLoading || !company}
+                >
+                  {newsLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Fetching News...
+                    </>
+                  ) : (
+                    "Fetch News"
+                  )}
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1110,18 +1220,18 @@ export default function CompanyPage({
                       <p className="font-semibold">
                         {amountDisplay} {dividend.currency}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground/80">
                         Ex-dividend:{" "}
                         {new Date(dividend.exDividendDate).toLocaleDateString()}
                       </p>
                     </div>
                     {dividend.paymentDate ? (
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-muted-foreground">
                         Payment:{" "}
                         {new Date(dividend.paymentDate).toLocaleDateString()}
                       </p>
                     ) : (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground/60">
                         Payment date pending
                       </p>
                     )}

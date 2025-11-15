@@ -33,6 +33,15 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+#keys
+*.p8
+AuthKey_*.p8
+
+# production env files
+.env production
+.env.local
+.env.production
+
 # vercel
 .vercel
 

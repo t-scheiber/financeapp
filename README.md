@@ -74,6 +74,7 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
 
 - **What it does**: Lets every search input (dashboard, watchlists, price alerts) resolve instruments by ISIN in addition to ticker symbols.
 - **How to use it**: Enter the 12-character ISIN in any search field. FinanceApp strips formatting, resolves or creates the company record, and renders it just like a standard ticker.
+
 ---
 
 ## 🧰 Tech Stack
@@ -165,7 +166,7 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
    bun run dev
    ```
 
-   Visit http://localhost:3000 and sign in with an allowed email.
+   Visit <http://localhost:3000> and sign in with an allowed email.
 
 ---
 
@@ -200,13 +201,16 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
 ## 🌐 External APIs
 
 ### Financial Data – Alpha Vantage
+
 - Free tier (5 calls/min, 500/day) is sufficient for the cron cadence.
 - Fallback to Yahoo Finance is used when Alpha Vantage is unavailable.
 
 ### News – NewsAPI
+
 - Fetches English articles per company to populate dashboards & watchlists.
 
 ### Sentiment Analysis – Hugging Face
+
 - Uses `distilbert-base-uncased-finetuned-sst-2-english` for cost-effective polarity checks.
 - Also powers H/F API key validation by calling a test inference.
 
@@ -272,15 +276,18 @@ model PriceAlert {
 ## 🚀 Deployment
 
 ### Vercel (recommended)
+
 1. Push the repository to GitHub.
 2. Connect the repo in Vercel and copy environment variables.
 3. Add a cron integration (or external scheduler) to call `/api/cron/refresh-data`.
 
 ### Manual
+
 ```bash
 bun run build
 bun run start
 ```
+
 Ensure environment variables are set and the cron job is configured separately.
 
 ---
@@ -314,7 +321,7 @@ bun run format              # Format code with ESLint
 
 ## 🗂 Project Structure
 
-```
+```text
 financeapp/
 ├── app/                      # Next.js App Router (pages + API routes)
 │   ├── api/                  # API routes (auth, user, cron, etc.)
@@ -369,4 +376,3 @@ MIT © [Thomas Scheiber](LICENSE). You can reuse the code, but the deployed inst
 - [Alpha Vantage](https://www.alphavantage.co/)
 - [NewsAPI](https://newsapi.org/)
 - [Hugging Face](https://huggingface.co/)
-

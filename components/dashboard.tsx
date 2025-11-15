@@ -214,7 +214,7 @@ export function Dashboard() {
               automatically every three hours.
             </p>
           </div>
-          <div className="grid w-full grid-cols-1 gap-4 rounded-2xl border border-accent/20 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur sm:max-w-sm sm:grid-cols-2">
+          <div className="grid w-full grid-cols-1 gap-4 rounded-2xl border border-accent/20 bg-card/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur sm:max-w-sm sm:grid-cols-2 dark:bg-card/60">
             <div className="flex flex-col gap-1 rounded-xl bg-accent/12 p-3 text-foreground transition sm:p-4">
               <span className="text-xs uppercase tracking-wide opacity-70">
                 Tracked companies
@@ -329,7 +329,7 @@ export function Dashboard() {
             {DASHBOARD_SKELETON_KEYS.map((skeletonKey) => (
               <div
                 key={skeletonKey}
-                className="interactive-card h-48 animate-pulse rounded-3xl bg-white/60"
+                className="interactive-card h-48 animate-pulse rounded-3xl bg-card/60 dark:bg-card/40"
               />
             ))}
           </div>
@@ -420,7 +420,7 @@ export function Dashboard() {
                           {company.symbol}
                         </Badge>
                         {company.isin ? (
-                          <span className="rounded-full border border-border/60 bg-white/70 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <span className="rounded-full border border-border/60 bg-card/70 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground dark:bg-card/50">
                             {company.isin}
                           </span>
                         ) : null}
@@ -428,7 +428,7 @@ export function Dashboard() {
                     </header>
 
                     <div className="mt-6 flex flex-col gap-5">
-                      <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-white/60 p-4 shadow-inner sm:flex-row sm:items-end sm:justify-between">
+                      <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-card/60 p-4 shadow-inner sm:flex-row sm:items-end sm:justify-between dark:bg-card/40">
                         <div>
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Last close
@@ -472,7 +472,7 @@ export function Dashboard() {
                       </div>
 
                       <dl className="grid grid-cols-2 gap-3 text-center text-xs text-muted-foreground sm:grid-cols-3">
-                        <div className="rounded-2xl border border-border/40 bg-white/70 p-3">
+                        <div className="rounded-2xl border border-border/40 bg-card/70 p-3 dark:bg-card/50">
                           <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-foreground/80">
                             <BarChart3 className="h-3 w-3" />
                             Prices
@@ -481,7 +481,7 @@ export function Dashboard() {
                             {company._count.stockPrices}
                           </dd>
                         </div>
-                        <div className="rounded-2xl border border-border/40 bg-white/70 p-3">
+                        <div className="rounded-2xl border border-border/40 bg-card/70 p-3 dark:bg-card/50">
                           <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-foreground/80">
                             <PiggyBank className="h-3 w-3" />
                             Dividends
@@ -490,7 +490,7 @@ export function Dashboard() {
                             {company._count.dividends}
                           </dd>
                         </div>
-                        <div className="col-span-2 rounded-2xl border border-border/40 bg-white/70 p-3 sm:col-span-1">
+                        <div className="col-span-2 rounded-2xl border border-border/40 bg-card/70 p-3 sm:col-span-1 dark:bg-card/50">
                           <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-foreground/80">
                             <Newspaper className="h-3 w-3" />
                             News

@@ -233,7 +233,7 @@ export function StockChart({ stockPrices, news }: StockChartProps) {
     const closeValue = payload.find((item) => item.name === "close")?.value;
 
     return (
-      <div className="rounded-xl border border-border/60 bg-white/95 p-4 text-sm shadow-lg">
+      <div className="rounded-xl border border-border/60 bg-card/95 p-4 text-sm shadow-lg dark:bg-card/90">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
@@ -344,7 +344,7 @@ export function StockChart({ stockPrices, news }: StockChartProps) {
                 disabled={metric === "close" || disabled}
                 className={clsx(
                   "group flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
-                  "border-border/60 bg-white/70 text-muted-foreground backdrop-blur",
+                  "border-border/60 bg-card/70 text-muted-foreground backdrop-blur dark:bg-card/50",
                   isActive &&
                     "border-accent/60 bg-accent/10 text-foreground shadow-[0_0_0_1px] shadow-accent/10",
                   disabled && "cursor-not-allowed opacity-50",

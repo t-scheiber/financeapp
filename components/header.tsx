@@ -20,12 +20,12 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="relative z-20 border-b border-border/60 bg-white/70 shadow-sm shadow-black/5 backdrop-blur">
+    <header className="relative z-20 border-b border-border/60 bg-background/80 shadow-sm shadow-black/5 backdrop-blur dark:bg-card/80 dark:shadow-black/20">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="group inline-flex items-center gap-2 rounded-full border border-transparent bg-white/70 px-3 py-1 text-sm font-semibold text-foreground shadow-sm transition hover:border-accent/40 hover:bg-white"
+            className="group inline-flex items-center gap-2 rounded-full border border-transparent bg-card/80 px-3 py-1 text-sm font-semibold text-foreground shadow-sm transition hover:border-accent/40 hover:bg-card dark:bg-card/60 dark:hover:bg-card"
           >
             <span className="relative inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-accent/15 text-accent">
               <span className="absolute inset-0 animate-float-soft bg-[radial-gradient(circle_at_center,var(--color-accent)_0%,transparent_70%)] opacity-50" />
@@ -81,7 +81,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-white/80 text-foreground shadow-sm transition hover:border-accent/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-card/80 text-foreground shadow-sm transition hover:border-accent/40 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 dark:bg-card/60 dark:hover:bg-card md:hidden"
             aria-expanded={isMenuOpen}
             aria-label="Toggle navigation menu"
           >
@@ -117,7 +117,7 @@ export function Header() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-border/40 bg-white/70 p-4 shadow-inner">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/40 bg-card/70 p-4 shadow-inner dark:bg-card/50">
             <p className="text-xs uppercase tracking-wide text-muted-foreground/70">
               Personalisation
             </p>

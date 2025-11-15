@@ -15,11 +15,72 @@ export async function GET(request: NextRequest) {
 
     if (companyId) {
       // Get news for a specific company by ID
-      const news = await prisma.news.findMany({
-        where: { companyId: parseInt(companyId, 10) },
+      const parsedCompanyId = parseInt(companyId, 10);
+      let news = await prisma.news.findMany({
+        where: { companyId: parsedCompanyId },
         orderBy: { publishedAt: "desc" },
         take: 20,
       });
+
+      // If no news found or refresh requested, fetch from external API
+      if ((news.length === 0 || refresh) && parsedCompanyId) {
+        const company = await prisma.company.findUnique({
+          where: { id: parsedCompanyId },
+        });
+
+        if (company) {
+          console.log(`Fetching fresh news for ${company.name}...`);
+          const articles = await newsAPI.getCompanyNews(company.name, 10);
+
+          // Store news with sentiment analysis
+          const sentimentAPI = new SentimentAPI();
+          for (const article of articles) {
+            try {
+              const sentimentResult = await sentimentAPI.analyzeNews(
+                article.title,
+                article.summary,
+              );
+
+              await prisma.news.upsert({
+                where: {
+                  companyId_url: {
+                    companyId: company.id,
+                    url: article.url,
+                  },
+                },
+                update: {
+                  title: article.title,
+                  summary: article.summary,
+                  source: article.source,
+                  publishedAt: new Date(article.publishedAt),
+                  sentiment: sentimentResult.sentiment,
+                },
+                create: {
+                  companyId: company.id,
+                  title: article.title,
+                  summary: article.summary,
+                  url: article.url,
+                  source: article.source,
+                  publishedAt: new Date(article.publishedAt),
+                  sentiment: sentimentResult.sentiment,
+                },
+              });
+
+              // Small delay to avoid rate limiting
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            } catch (error) {
+              console.error(`Error processing article: ${article.title}`, error);
+            }
+          }
+
+          // Fetch updated news
+          news = await prisma.news.findMany({
+            where: { companyId: parsedCompanyId },
+            orderBy: { publishedAt: "desc" },
+            take: 20,
+          });
+        }
+      }
 
       return NextResponse.json(news);
     }

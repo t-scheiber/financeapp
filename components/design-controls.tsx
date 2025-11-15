@@ -90,7 +90,7 @@ export function DesignControlsTrigger({ className }: { className?: string }) {
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((prev) => !prev)}
-        className="relative h-10 w-10 rounded-full border border-border/60 bg-white/80 text-foreground shadow-sm backdrop-blur hover:bg-white"
+        className="relative h-10 w-10 rounded-full border border-border/60 bg-card/80 text-foreground shadow-sm backdrop-blur hover:bg-card dark:bg-card/60 dark:hover:bg-card"
       >
         <Palette className="h-4 w-4" />
         <span className="sr-only">Toggle design controls</span>
@@ -103,7 +103,7 @@ export function DesignControlsTrigger({ className }: { className?: string }) {
         aria-modal="false"
         aria-label="Design customization"
         className={clsx(
-          "glass-panel absolute right-0 z-50 mt-4 w-[min(360px,86vw)] origin-top-right rounded-2xl bg-white/95 p-5 shadow-lg backdrop-blur-xl transition-all duration-200",
+          "glass-panel absolute right-0 z-50 mt-4 w-[min(360px,86vw)] origin-top-right rounded-2xl bg-card/95 p-5 shadow-lg backdrop-blur-xl transition-all duration-200 dark:bg-card/90",
           open
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none translate-y-2 opacity-0",
@@ -224,7 +224,7 @@ export function DesignSettingsForm({
                   aria-pressed={isActive}
                   className={clsx(
                     "group flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all",
-                    "border-border/60 bg-white/60 text-muted-foreground backdrop-blur",
+                    "border-border/60 bg-card/60 text-muted-foreground backdrop-blur dark:bg-card/40",
                     "hover:border-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70",
                     isActive &&
                       "border-accent/70 bg-accent/12 text-foreground shadow-[0_0_0_1px] shadow-accent/20",

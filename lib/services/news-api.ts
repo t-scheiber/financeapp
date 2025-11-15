@@ -76,24 +76,4 @@ export class NewsAPI {
     }
   }
 
-  // Alternative using Bing News Search API (if NewsAPI doesn't work)
-  async getBingNews(companyName: string): Promise<NewsArticle[]> {
-    try {
-      // Note: This would require a different API setup
-      // For demo purposes, we'll return mock data
-      return [
-        {
-          id: "mock-1",
-          title: `Latest news about ${companyName}`,
-          summary: `Recent developments and updates related to ${companyName}...`,
-          url: `https://example.com/news/${companyName.toLowerCase()}`,
-          source: "Financial News",
-          publishedAt: new Date().toISOString(),
-        },
-      ];
-    } catch (error) {
-      console.error(`Error fetching Bing news for ${companyName}:`, error);
-      return [];
-    }
-  }
 }

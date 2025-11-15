@@ -4,6 +4,8 @@ import { AuthProvider } from "@/components/auth-provider";
 import { DesignProvider } from "@/components/design-provider";
 import { FeatureToggleProvider } from "@/components/feature-toggle-provider";
 import { Header } from "@/components/header";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Finance App - Financial Data & News Dashboard",
@@ -29,18 +31,21 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon?<generated>" />
       </head>
       <body className="min-h-screen bg-background text-foreground">
-        <DesignProvider>
-          <FeatureToggleProvider>
-            <div className="app-shell">
-              <div className="app-backdrop" aria-hidden="true" />
-              <div className="grid-overlay" aria-hidden="true" />
-              <AuthProvider>
-                <Header />
-                <main className="relative z-10 flex-1 pb-16">{children}</main>
-              </AuthProvider>
-            </div>
-          </FeatureToggleProvider>
-        </DesignProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <DesignProvider>
+            <FeatureToggleProvider>
+              <div className="app-shell">
+                <div className="app-backdrop" aria-hidden="true" />
+                <div className="grid-overlay" aria-hidden="true" />
+                <AuthProvider>
+                  <Header />
+                  <main className="relative z-10 flex-1 pb-16">{children}</main>
+                </AuthProvider>
+              </div>
+              <Toaster position="bottom-right" richColors closeButton />
+            </FeatureToggleProvider>
+          </DesignProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
