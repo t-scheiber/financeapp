@@ -4,13 +4,100 @@
 
 This error occurs when Apple's OAuth callback cannot verify the state parameter. Here's how to fix it:
 
-### 🔍 Root Causes
+### 🔍 Root Causes (in order of likelihood)
 
-1. **Redirect URI Mismatch** (Most Common)
-2. **Cookie Configuration Issues**
-3. **HTTP vs HTTPS Mismatch**
-4. **Browser Security Settings**
-5. **Expired JWT Client Secret**
+1. **Domain Mismatch (www vs non-www)** - **MOST COMMON IN PRODUCTION** ⚠️
+2. **Redirect URI Mismatch**
+3. **Cookie Configuration Issues**
+4. **HTTP vs HTTPS Mismatch**
+5. **Browser Security Settings**
+6. **Expired JWT Client Secret**
+7. **Trailing Slashes in URLs**
+
+---
+
+## 🔥 PRODUCTION "state_mismatch" Quick Fix
+
+If you're getting `state_mismatch` in **production** (not localhost), here's the most common fix:
+
+### ⚡ Fix #1: Domain Consistency (www vs non-www)
+
+**Problem**: You're accessing via `www.yourdomain.com` but your env vars are set for `yourdomain.com` (or vice versa).
+
+**Solution**: Make ALL of these match:
+
+1. **The URL you're accessing in your browser**
+2. **Your production environment variables:**
+   ```env
+   BETTER_AUTH_URL=https://yourdomain.com  # Must match what you type in browser
+   NEXT_PUBLIC_APP_URL=https://yourdomain.com
+   APPLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/apple
+   ```
+
+3. **Apple Developer Console configuration:**
+   - Domain: `yourdomain.com` (no www, no https://)
+   - Redirect URI: `https://yourdomain.com/api/auth/callback/apple`
+
+**If you use www:**
+```env
+BETTER_AUTH_URL=https://www.yourdomain.com
+APPLE_REDIRECT_URI=https://www.yourdomain.com/api/auth/callback/apple
+```
+And in Apple Console:
+- Domain: `www.yourdomain.com`
+- Redirect URI: `https://www.yourdomain.com/api/auth/callback/apple`
+
+**Best Practice**: Set up a redirect so both www and non-www go to the same version, then configure everything for that version.
+
+### ⚡ Fix #2: Remove Trailing Slashes
+
+**Problem**: Trailing slashes in `BETTER_AUTH_URL` can cause issues.
+
+**Solution**:
+```env
+# ✅ Good - no trailing slash
+BETTER_AUTH_URL=https://yourdomain.com
+
+# ❌ Bad - has trailing slash
+BETTER_AUTH_URL=https://yourdomain.com/
+```
+
+### ⚡ Fix #3: Check Server Logs
+
+After deploying the updated code, check your production server logs. You should see:
+
+```
+🍎 Apple Sign-In Configuration: {
+  clientId: 'com.thomasscheiber.finance.si',
+  hasSecret: true,
+  secretLength: 1234,
+  redirectUri: 'https://yourdomain.com/api/auth/callback/apple',
+  baseURL: 'https://yourdomain.com',
+  isProduction: true,
+  cookieDomain: 'yourdomain.com'
+}
+```
+
+Verify:
+- [ ] `hasSecret` is `true`
+- [ ] `redirectUri` matches your browser URL and Apple Console
+- [ ] `baseURL` matches your browser URL
+- [ ] `cookieDomain` is set correctly (without www)
+
+### ⚡ Fix #4: Deploy the Updated Code
+
+The code has been updated to automatically handle cookie domain issues. Deploy it:
+
+```bash
+git add .
+git commit -m "Fix Apple Sign-In state_mismatch error"
+git push
+```
+
+Wait for deployment to complete, then:
+1. **Clear all browser cookies** (or use incognito)
+2. **Visit your site** using the exact URL in your env vars
+3. **Try Apple Sign-In**
 
 ---
 
