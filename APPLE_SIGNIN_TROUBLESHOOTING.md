@@ -28,6 +28,7 @@ If you're getting `state_mismatch` in **production** (not localhost), here's the
 
 1. **The URL you're accessing in your browser**
 2. **Your production environment variables:**
+
    ```env
    BETTER_AUTH_URL=https://yourdomain.com  # Must match what you type in browser
    NEXT_PUBLIC_APP_URL=https://yourdomain.com
@@ -39,11 +40,14 @@ If you're getting `state_mismatch` in **production** (not localhost), here's the
    - Redirect URI: `https://yourdomain.com/api/auth/callback/apple`
 
 **If you use www:**
+
 ```env
 BETTER_AUTH_URL=https://www.yourdomain.com
 APPLE_REDIRECT_URI=https://www.yourdomain.com/api/auth/callback/apple
 ```
+
 And in Apple Console:
+
 - Domain: `www.yourdomain.com`
 - Redirect URI: `https://www.yourdomain.com/api/auth/callback/apple`
 
@@ -54,6 +58,7 @@ And in Apple Console:
 **Problem**: Trailing slashes in `BETTER_AUTH_URL` can cause issues.
 
 **Solution**:
+
 ```env
 # ✅ Good - no trailing slash
 BETTER_AUTH_URL=https://yourdomain.com
@@ -66,7 +71,7 @@ BETTER_AUTH_URL=https://yourdomain.com/
 
 After deploying the updated code, check your production server logs. You should see:
 
-```
+```text
 🍎 Apple Sign-In Configuration: {
   clientId: 'com.thomasscheiber.finance.si',
   hasSecret: true,
@@ -79,6 +84,7 @@ After deploying the updated code, check your production server logs. You should 
 ```
 
 Verify:
+
 - [ ] `hasSecret` is `true`
 - [ ] `redirectUri` matches your browser URL and Apple Console
 - [ ] `baseURL` matches your browser URL
@@ -95,6 +101,7 @@ git push
 ```
 
 Wait for deployment to complete, then:
+
 1. **Clear all browser cookies** (or use incognito)
 2. **Visit your site** using the exact URL in your env vars
 3. **Try Apple Sign-In**
