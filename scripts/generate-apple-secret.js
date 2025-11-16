@@ -1,6 +1,6 @@
 /**
  * Generate Apple Sign In Client Secret (JWT)
- * 
+ *
  * Usage:
  * 1. Place your .p8 key file in the project root (or update KEY_FILE path)
  * 2. Update the configuration values below

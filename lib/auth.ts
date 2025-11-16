@@ -19,6 +19,8 @@ export const auth = betterAuth({
       clientId: process.env.APPLE_CLIENT_ID ?? "",
       clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
       appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER,
+      // Explicitly set the redirect URI (Better Auth default: {baseURL}/api/auth/callback/apple)
+      redirectURI: process.env.APPLE_REDIRECT_URI,
     },
   },
   trustedOrigins: ["https://appleid.apple.com"],
@@ -40,6 +42,10 @@ export const auth = betterAuth({
       httpOnly: true,
       secure: false, // Must be false for localhost HTTP
     },
+  },
+  // Enable state verification debugging and extend state expiry
+  rateLimit: {
+    enabled: false, // Disable rate limiting for development
   },
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
