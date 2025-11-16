@@ -10,6 +10,11 @@ export default function SignIn() {
   const router = useRouter();
   const { data: session } = useSession();
 
+  // Check if we're in production (Apple Sign-In only works with real domains)
+  const isProduction = 
+    process.env.NODE_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://");
+
   useEffect(() => {
     // If user is already signed in, redirect to dashboard
     if (session) {
@@ -56,12 +61,24 @@ export default function SignIn() {
           >
             Sign in with Google
           </Button>
-          <Button
-            onClick={handleAppleSignIn}
-            className="w-full flex justify-center py-2 px-4 border border-border rounded-md shadow-sm text-sm font-medium text-foreground bg-card hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
-          >
-            Sign in with Apple
-          </Button>
+          
+          {isProduction ? (
+            <Button
+              onClick={handleAppleSignIn}
+              className="w-full flex justify-center py-2 px-4 border border-border rounded-md shadow-sm text-sm font-medium text-foreground bg-card hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
+            >
+              Sign in with Apple
+            </Button>
+          ) : (
+            <div className="rounded-md border border-border/50 bg-muted/30 px-4 py-3 text-center">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Apple Sign-In</span> is only available in production
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Apple doesn&apos;t support localhost domains
+              </p>
+            </div>
+          )}
 
           <div className="text-center pt-4 border-t border-border">
             <div className="flex justify-center space-x-6 text-sm">

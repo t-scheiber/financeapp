@@ -14,43 +14,218 @@ This error occurs when Apple's OAuth callback cannot verify the state parameter.
 
 ---
 
-## ✅ Step-by-Step Fix
+## 🚀 Quick Fix - Production Testing (Recommended)
+
+Since Apple doesn't support `localhost`, the **easiest solution** is to test in production:
+
+### Prerequisites
+
+- A deployed domain (e.g., `yourdomain.com`)
+- Access to your hosting platform's environment variables
+- Apple Developer account
+
+### Quick Steps
+
+1. **Set Production Environment Variables**
+
+   In your hosting platform (Vercel, Railway, Hostinger, etc.), set:
+
+   ```env
+   APPLE_CLIENT_ID=com.thomasscheiber.finance.si
+   APPLE_CLIENT_SECRET=your-jwt-token
+   APPLE_APP_BUNDLE_IDENTIFIER=com.thomasscheiber.finance
+   APPLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/apple
+   BETTER_AUTH_URL=https://yourdomain.com
+   NEXT_PUBLIC_APP_URL=https://yourdomain.com
+   BETTER_AUTH_SECRET=your-random-secret-at-least-32-chars
+   ```
+
+2. **Configure Apple Developer Console**
+
+   Go to [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers):
+   - Select your Service ID
+   - Click "Configure" next to "Sign in with Apple"
+   - **Domain**: `yourdomain.com` (no protocol, no www)
+   - **Redirect URI**: `https://yourdomain.com/api/auth/callback/apple`
+   - Click "Save"
+
+3. **Update Cookie Settings for Production**
+
+   In `lib/auth.ts`, ensure secure cookies are enabled:
+
+   ```typescript
+   advanced: {
+     useSecureCookies: true,  // Must be true for HTTPS
+     defaultCookieAttributes: {
+       sameSite: "lax",
+       path: "/",
+       httpOnly: true,
+       secure: true,  // Must be true for HTTPS
+     },
+   },
+   ```
+
+4. **Deploy and Test**
+   - Deploy your changes
+   - Visit `https://yourdomain.com`
+   - Try Apple Sign-In
+   - Check browser console and server logs for errors
+
+---
+
+## ✅ Detailed Step-by-Step Fix
 
 ### 1. Verify Apple Developer Console Configuration
 
 Go to [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers) and check:
 
 **For Local Development:**
+
 - **Service ID (Identifier)**: `com.thomasscheiber.finance.si` (or your actual Service ID)
-- **Redirect URI**: `http://localhost:3000/api/auth/callback/apple`
-- **Domain**: `localhost:3000` (without http://)
+- **Redirect URI**: Use one of these approaches:
+  - **Option A**: Use your production domain (e.g., `https://yourdomain.com/api/auth/callback/apple`)
+  - **Option B**: Use ngrok/tunneling (e.g., `https://abc123.ngrok.io/api/auth/callback/apple`)
+  - **Option C**: Use a staging domain (e.g., `https://dev.yourdomain.com/api/auth/callback/apple`)
+- **Domain**: A valid domain you own (e.g., `yourdomain.com`)
+
+⚠️ **IMPORTANT**: Apple does NOT accept `localhost` as a domain. See options below.
 
 **For Production:**
+
 - **Redirect URI**: `https://yourdomain.com/api/auth/callback/apple`
 - **Domain**: `yourdomain.com` (without https://)
 
-⚠️ **IMPORTANT**: The redirect URI in Apple Developer Console MUST exactly match your environment:
-- Local: `http://localhost:3000/api/auth/callback/apple`
-- Production: `https://yourdomain.com/api/auth/callback/apple`
+⚠️ **IMPORTANT**: Apple does NOT accept `localhost` domains. For local development, see the workarounds below.
+
+---
+
+## 🚨 Apple Sign-In Local Development Workarounds
+
+Since Apple **does NOT accept `localhost`** domains, you have three options:
+
+### **Option A: Test in Production (Recommended - Simplest)**
+
+Test Apple Sign-In directly on your deployed production environment. This is the **easiest and most reliable** approach:
+
+```env
+# Production environment variables
+APPLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/apple
+BETTER_AUTH_URL=https://yourdomain.com
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+```
+
+✅ **Pros**: No extra setup, real domain, no tunneling needed  
+❌ **Cons**: Requires deployment to test changes
+
+💡 **Tip**: Use Google Sign-In for local development testing, and only test Apple Sign-In in production.
+
+---
+
+### **Option B: Use ngrok (For Local Development)**
+
+Use a tunneling service to get a temporary HTTPS domain:
+
+1. **Install ngrok**:
+
+   ```bash
+   # Windows (with Chocolatey)
+   choco install ngrok
+   
+   # Or download from https://ngrok.com/download
+   ```
+
+2. **Start your Next.js app**:
+
+   ```bash
+   bun run dev
+   ```
+
+3. **In another terminal, start ngrok**:
+
+   ```bash
+   ngrok http 3000
+   ```
+
+4. **Copy the HTTPS URL** (e.g., `https://abc123.ngrok.io`)
+
+5. **Update Apple Developer Console**:
+   - Domain: `abc123.ngrok.io`
+   - Redirect URI: `https://abc123.ngrok.io/api/auth/callback/apple`
+
+6. **Update your `.env.local`**:
+
+   ```env
+   APPLE_REDIRECT_URI=https://abc123.ngrok.io/api/auth/callback/apple
+   BETTER_AUTH_URL=https://abc123.ngrok.io
+   NEXT_PUBLIC_APP_URL=https://abc123.ngrok.io
+   ```
+
+7. **Restart your Next.js app** and access via `https://abc123.ngrok.io`
+
+✅ **Pros**: Can develop locally with real Apple Sign-In  
+❌ **Cons**: URL changes each time (free tier), need to update Apple Console
+
+💡 **Tip**: Use ngrok's paid plan for a persistent domain, or use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) (free alternative).
+
+---
+
+### **Option C: Use a Custom Test Domain**
+
+Set up a subdomain pointing to localhost:
+
+1. **Create a subdomain** like `dev.yourdomain.com`
+
+2. **Point it to your local IP** or use a reverse proxy
+
+3. **Set up SSL certificate** (Let's Encrypt)
+
+4. **Configure Apple Developer Console**:
+   - Domain: `dev.yourdomain.com`
+   - Redirect URI: `https://dev.yourdomain.com/api/auth/callback/apple`
+
+5. **Update `.env.local`**:
+
+   ```env
+   APPLE_REDIRECT_URI=https://dev.yourdomain.com/api/auth/callback/apple
+   BETTER_AUTH_URL=https://dev.yourdomain.com
+   NEXT_PUBLIC_APP_URL=https://dev.yourdomain.com
+   ```
+
+✅ **Pros**: Persistent domain, professional setup  
+❌ **Cons**: Requires DNS/SSL setup, more complex
+
+---
 
 ### 2. Update Your `.env.local` File
 
-Add or update these variables:
+**For ngrok (Recommended):**
 
 ```env
 # Apple OAuth Configuration
 APPLE_CLIENT_ID=com.thomasscheiber.finance.si
 APPLE_CLIENT_SECRET=your-jwt-token-from-generate-script
 APPLE_APP_BUNDLE_IDENTIFIER=com.thomasscheiber.finance
-APPLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/apple
+APPLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/auth/callback/apple
 
 # Better Auth Configuration
-BETTER_AUTH_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+BETTER_AUTH_URL=https://your-ngrok-url.ngrok.io
+NEXT_PUBLIC_APP_URL=https://your-ngrok-url.ngrok.io
 BETTER_AUTH_SECRET=your-random-secret-at-least-32-chars
+```
 
-# Optional: For debugging
-NODE_ENV=development
+**For Production:**
+
+```env
+# Apple OAuth Configuration
+APPLE_CLIENT_ID=com.thomasscheiber.finance.si
+APPLE_CLIENT_SECRET=your-jwt-token-from-generate-script
+APPLE_APP_BUNDLE_IDENTIFIER=com.thomasscheiber.finance
+APPLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/apple
+
+# Better Auth Configuration
+BETTER_AUTH_URL=https://yourdomain.com
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+BETTER_AUTH_SECRET=your-random-secret-at-least-32-chars
 ```
 
 ### 3. Regenerate Apple Client Secret (if needed)
@@ -63,22 +238,40 @@ node scripts/generate-apple-secret.js
 
 Copy the generated `APPLE_CLIENT_SECRET` to your `.env.local`.
 
-### 4. Clear Browser Data
+### 4. Configure Apple Developer Console with Your Domain
+
+Go to [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers):
+
+1. Select your Service ID
+2. Click "Configure" next to "Sign in with Apple"
+3. Add your domain and redirect URI:
+   - **Domain**: `your-ngrok-url.ngrok.io` (or `yourdomain.com` for production)
+   - **Redirect URI**: `https://your-ngrok-url.ngrok.io/api/auth/callback/apple`
+4. Click "Save"
+
+### 5. Clear Browser Data
 
 Apple Sign-In is sensitive to cookies. Clear:
-- Cookies for `localhost:3000`
+
+- Cookies for your domain
 - Cookies for `appleid.apple.com`
 - Browser cache
 
 Or use **Incognito/Private mode** for testing.
 
-### 5. Restart Your Development Server
+### 6. Restart Your Development Server
 
 ```bash
 # Stop the server (Ctrl+C)
 # Then restart:
 bun run dev
 ```
+
+### 7. Access via Your Configured Domain
+
+- **If using ngrok**: Access via `https://your-ngrok-url.ngrok.io`
+- **If using production**: Access via `https://yourdomain.com`
+- ❌ **DO NOT** access via `localhost:3000` when testing Apple Sign-In
 
 ---
 
@@ -87,6 +280,7 @@ bun run dev
 ### Check Cookie Settings
 
 The current configuration (`lib/auth.ts`) uses:
+
 - `sameSite: "lax"` - Works for most OAuth flows
 - `secure: false` - Required for HTTP (localhost)
 - `httpOnly: true` - Security best practice
@@ -94,6 +288,7 @@ The current configuration (`lib/auth.ts`) uses:
 ### Test with Different Browsers
 
 Sometimes Safari/Chrome handle Apple Sign-In cookies differently:
+
 - ✅ Try Safari (best Apple integration)
 - ✅ Try Chrome Incognito
 - ✅ Try Firefox Private Window
@@ -132,6 +327,7 @@ When deploying to production:
    - Add production domain: `yourdomain.com`
 
 2. Update environment variables:
+
    ```env
    APPLE_REDIRECT_URI=https://yourdomain.com/api/auth/callback/apple
    BETTER_AUTH_URL=https://yourdomain.com
@@ -139,6 +335,7 @@ When deploying to production:
    ```
 
 3. Enable secure cookies in `lib/auth.ts`:
+
    ```typescript
    advanced: {
      useSecureCookies: true,  // Change to true for HTTPS
@@ -172,6 +369,7 @@ Before testing Apple Sign-In, verify:
 ## 🆘 Still Having Issues?
 
 ### Check Better Auth Documentation
+
 - [Better Auth Apple Provider](https://better-auth.com/docs/guides/social-providers/apple)
 - [Better Auth Error Handling](https://better-auth.com/docs/concepts/error-handling)
 
@@ -197,10 +395,11 @@ If Google Sign-In works but Apple doesn't, it confirms the issue is Apple-specif
 ## 📝 Quick Reference
 
 **Better Auth Callback Endpoints:**
+
 - Google: `{baseURL}/api/auth/callback/google`
 - Apple: `{baseURL}/api/auth/callback/apple`
 
 **Where `{baseURL}` is:**
+
 - Local: `http://localhost:3000`
 - Production: `https://yourdomain.com`
-

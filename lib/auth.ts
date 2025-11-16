@@ -3,6 +3,11 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware, APIError } from "better-auth/api";
 import { prisma } from "@/lib/db";
 
+// Detect if we're in production (HTTPS environment)
+const isProduction = process.env.NODE_ENV === "production" ||
+                     process.env.BETTER_AUTH_URL?.startsWith("https://") ||
+                     process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://");
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "mysql",
@@ -35,17 +40,19 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    useSecureCookies: false, // Set to false for localhost development
+    // Automatically use secure cookies in production (HTTPS)
+    useSecureCookies: isProduction,
     defaultCookieAttributes: {
       sameSite: "lax",
       path: "/",
       httpOnly: true,
-      secure: false, // Must be false for localhost HTTP
+      // Secure cookies only on HTTPS (production)
+      secure: isProduction,
     },
   },
-  // Enable state verification debugging and extend state expiry
   rateLimit: {
-    enabled: false, // Disable rate limiting for development
+    // Enable rate limiting in production
+    enabled: isProduction,
   },
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
