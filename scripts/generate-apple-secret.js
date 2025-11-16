@@ -2,9 +2,9 @@
  * Generate Apple Sign In Client Secret (JWT)
  *
  * Usage:
- * 1. Place your .p8 key file in the project root (or update KEY_FILE path)
- * 2. Update the configuration values below
- * 3. Run: node generate-apple-secret.js
+ * 1. Place your .p8 key file in the scripts/ folder (next to this file)
+ * 2. Update the configuration values below if needed
+ * 3. Run: node scripts/generate-apple-secret.js
  */
 
 import jwt from 'jsonwebtoken';
@@ -22,21 +22,34 @@ const __dirname = path.dirname(__filename);
 const KEY_ID = 'AT38N733LP';           // From Step 3 (10-character string)
 const TEAM_ID = '8RSPLFN63L';         // From Step 4 (10-character string)
 const CLIENT_ID = 'com.thomasscheiber.finance.si'; // Your Services ID
-const KEY_FILE = './AuthKey_AT38N733LP.p8';       // Path to your downloaded .p8 file
+const KEY_FILE = 'AuthKey_AT38N733LP.p8';       // Filename (will look in scripts folder first)
 
 // ============================================
 // GENERATION
 // ============================================
 
 try {
-  // Check if key file exists
-  if (!fs.existsSync(KEY_FILE)) {
+  // Check if key file exists - try scripts folder first (where this script is)
+  const scriptsPath = path.join(__dirname, KEY_FILE);
+  const projectRootPath = path.join(__dirname, '..', KEY_FILE);
+  const relativePath = KEY_FILE;
+  
+  let keyPath;
+  if (fs.existsSync(scriptsPath)) {
+    keyPath = scriptsPath;
+  } else if (fs.existsSync(projectRootPath)) {
+    keyPath = projectRootPath;
+  } else if (fs.existsSync(relativePath)) {
+    keyPath = relativePath;
+  } else {
     console.error('❌ Error: Key file not found!');
-    console.error(`   Looking for: ${path.resolve(KEY_FILE)}`);
+    console.error(`   Tried: ${path.resolve(scriptsPath)}`);
+    console.error(`   Tried: ${path.resolve(projectRootPath)}`);
+    console.error(`   Tried: ${path.resolve(relativePath)}`);
     console.error('\n📝 Instructions:');
     console.error('   1. Download your .p8 key file from Apple Developer Portal');
-    console.error('   2. Place it in the project root');
-    console.error('   3. Update KEY_FILE path in this script');
+    console.error('   2. Place it in the scripts/ folder (same folder as this script)');
+    console.error('   3. Or update KEY_FILE path in this script');
     process.exit(1);
   }
 
@@ -47,7 +60,8 @@ try {
   }
 
   // Read the private key
-  const privateKey = fs.readFileSync(KEY_FILE);
+  console.log(`📄 Reading key file from: ${path.resolve(keyPath)}`);
+  const privateKey = fs.readFileSync(keyPath);
 
   // Calculate timestamps
   const now = Math.floor(Date.now() / 1000);
@@ -72,6 +86,10 @@ try {
     }
   );
 
+  // Format expiration date
+  const expirationDate = new Date(expiration * 1000);
+  const generatedDate = new Date(now * 1000);
+
   console.log('\n✅ Apple Client Secret Generated!\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('Add this to your .env.local file:\n');
@@ -81,7 +99,9 @@ try {
   console.log(`   APPLE_CLIENT_ID=${CLIENT_ID}`);
   console.log(`   APPLE_CLIENT_SECRET=${token}`);
   console.log(`   APPLE_APP_BUNDLE_IDENTIFIER=com.thomasscheiber.finance\n`);
-  console.log('⏰ This token expires in 6 months.');
+  console.log('⏰ Token Information:');
+  console.log(`   Generated: ${generatedDate.toLocaleString()}`);
+  console.log(`   Expires: ${expirationDate.toLocaleString()} (6 months from now)`);
   console.log('   Regenerate before expiration using this script.\n');
 
 } catch (error) {
