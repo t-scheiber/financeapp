@@ -11,8 +11,9 @@ export default function SignIn() {
   const { data: session } = useSession();
 
   // Check if we're in production (Apple Sign-In only works with real domains)
-  const isProduction = 
+  const isProduction =
     process.env.NODE_ENV === "production" ||
+    process.env.BETTER_AUTH_URL?.startsWith("https://") ||
     process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://");
 
   useEffect(() => {

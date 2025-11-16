@@ -143,7 +143,7 @@ export async function validateApiKey(
           } else if (response.status === 429) {
             isValid = true; // Valid but rate limited
           }
-        } catch (_error) {
+        } catch {
           // Invalid key or network error
         }
         break;
@@ -159,7 +159,7 @@ export async function validateApiKey(
               isValid = true;
             }
           }
-        } catch (_error) {
+        } catch {
           // Invalid key or network error
         }
         break;
@@ -196,7 +196,7 @@ export async function validateApiKey(
             isValid = false;
             break;
           }
-        } catch (_error) {
+        } catch {
           validationMessage ??=
             "Unable to reach Hugging Face user profile API.";
         }
@@ -254,7 +254,7 @@ export async function validateApiKey(
             validationMessage =
               data?.error ?? "Unable to verify Hugging Face API key.";
           }
-        } catch (_error) {
+        } catch {
           validationMessage ??= "Unable to reach Hugging Face inference API.";
         }
         break;

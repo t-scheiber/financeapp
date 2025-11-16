@@ -18,7 +18,7 @@ export function decrypt(encryptedText: string): string {
   try {
     const bytes = crypto.AES.decrypt(encryptedText, ENCRYPTION_KEY);
     return bytes.toString(crypto.enc.Utf8);
-  } catch (_error) {
+  } catch {
     throw new Error("Failed to decrypt data");
   }
 }

@@ -306,7 +306,7 @@ export async function resolveOrCreateCompany(options: {
         // Re-throw the original error if we can't recover
         throw error;
       }
-    } catch (fallbackError) {
+    } catch {
       // Final fallback - try to find by ISIN or symbol one more time
       const upperInput = options.symbol.trim().toUpperCase();
       const normalisedIsin = tryNormaliseIsin(upperInput);

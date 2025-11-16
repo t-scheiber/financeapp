@@ -923,7 +923,7 @@ export default function CompanyPage({
 
       {/* Latest Price Highlight */}
       {latestPrice ? (
-        <Card className="mb-8 bg-gradient-to-r from-accent/10 to-accent/5 dark:from-accent/20 dark:to-accent/10">
+        <Card className="mb-8 bg-linear-to-r from-accent/10 to-accent/5 dark:from-accent/20 dark:to-accent/10">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>

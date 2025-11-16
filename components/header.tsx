@@ -16,7 +16,7 @@ const NAVIGATION = [
 ];
 
 export function Header() {
-  const { data: session, isPending } = useSession();
+  const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
