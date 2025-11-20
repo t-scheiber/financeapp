@@ -1,0 +1,5 @@
+export const WATCHLIST_COMPANY_LIMIT = 20;
+export const PORTFOLIO_HOLDING_LIMIT = 30;
+export const CRON_INTERVAL_HOURS = 3;
+export const GLOBAL_COMPANY_TARGET = 60;
+

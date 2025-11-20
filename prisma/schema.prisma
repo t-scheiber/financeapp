@@ -1,0 +1,406 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Users (Better Auth integration)
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  hasSeenGuide Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts               Account[]
+  sessions               Session[]
+  apiKeys                UserApiKey[]
+  watchlists             Watchlist[]
+  portfolios             Portfolio[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
+  priceAlerts            PriceAlert[]
+  rateLimits             RateLimit[]
+
+  emailVerified Boolean @default(false)
+
+  @@map("users")
+}
+
+// Better Auth Account model
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String    @unique @db.VarChar(255)
+  providerId            String    @db.VarChar(255)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+// Better Auth Session model
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?  @db.Text
+  userAgent String?  @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Companies to monitor
+
+model Company {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  symbol      String   @unique
+  isin        String?  @unique
+  sector      String?
+  industry    String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stockPrices StockPrice[]
+  dividends   Dividend[]
+  news        News[]
+  watchlists  WatchlistCompany[]
+  holdings    Holding[]
+  priceAlerts PriceAlert[]
+
+  @@map("companies")
+}
+
+// Stock price data
+
+model StockPrice {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  date      DateTime
+  open      Float?
+  high      Float?
+  low       Float?
+  close     Float
+  volume    Int?
+  createdAt DateTime @default(now())
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@map("stock_prices")
+}
+
+// Dividend data
+
+model Dividend {
+  id             Int       @id @default(autoincrement())
+  companyId      Int
+  exDividendDate DateTime
+  paymentDate    DateTime?
+  recordDate     DateTime?
+  amount         Float
+  currency       String    @default("USD")
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, exDividendDate])
+  @@map("dividends")
+}
+
+// News articles
+
+model News {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  title       String
+  summary     String?
+  url         String
+  source      String
+  publishedAt DateTime
+  sentiment   String? // positive, negative, neutral
+  createdAt   DateTime @default(now())
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, url])
+  @@map("news")
+}
+
+// User API Keys (encrypted)
+
+model UserApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  provider   String // "alpha_vantage", "newsapi", "huggingface"
+  key        String // encrypted
+  isValid    Boolean   @default(false)
+  lastTested DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("user_api_keys")
+}
+
+// Watchlists
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companies WatchlistCompany[]
+
+  @@map("watchlists")
+}
+
+// Watchlist-Company junction table
+
+model WatchlistCompany {
+  id          String   @id @default(cuid())
+  watchlistId String
+  companyId   Int
+  addedAt     DateTime @default(now())
+
+  // Relations
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, companyId])
+  @@map("watchlist_companies")
+}
+
+// Portfolios
+
+model Portfolio {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings           Holding[]
+  optimizedPortfolio OptimizedPortfolio?
+
+  @@map("portfolios")
+}
+
+// Holdings (portfolio composition)
+
+model Holding {
+  id          String   @id @default(cuid())
+  portfolioId String
+  companyId   Int
+  weight      Float // 0-1, percentage of portfolio
+  createdAt   DateTime @default(now())
+
+  // Relations
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, companyId])
+  @@map("holdings")
+}
+
+// Optimized portfolios (efficient frontier results)
+
+model OptimizedPortfolio {
+  id                 String   @id @default(cuid())
+  portfolioId        String   @unique
+  maxSharpeWeights   Json // JSON weights for max Sharpe ratio
+  minVarianceWeights Json // JSON weights for min variance
+  efficientFrontier  Json // Array of {risk, return, weights} points
+  calculatedAt       DateTime @default(now())
+
+  // Relations
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("optimized_portfolios")
+}
+
+// Notifications
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // "sentiment_change", "breaking_news", "price_alert"
+  title     String
+  message   String
+  data      Json? // Additional context data
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  emailEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model PriceAlert {
+  id            String    @id @default(cuid())
+  userId        String
+  companyId     Int
+  direction     String // "above" or "below"
+  threshold     Float
+  isActive      Boolean   @default(true)
+  lastTriggered DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId, direction, threshold])
+  @@map("price_alerts")
+}
+
+// Price cache with TTL
+
+model PriceCache {
+  id        String   @id @default(cuid())
+  symbol    String // Company symbol
+  data      Json // Cached price data
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([symbol, expiresAt])
+  @@map("price_cache")
+}
+
+// Market indices (for comparisons)
+
+model MarketIndex {
+  id        String   @id @default(cuid())
+  symbol    String   @unique // "ATX", "DAX", "DJI", etc.
+  name      String
+  createdAt DateTime @default(now())
+
+  // Relations
+  prices MarketIndexPrice[]
+
+  @@map("market_indices")
+}
+
+// Market index prices
+
+model MarketIndexPrice {
+  id        String   @id @default(cuid())
+  indexId   String
+  date      DateTime
+  open      Float?
+  high      Float?
+  low       Float?
+  close     Float
+  volume    Int?
+  createdAt DateTime @default(now())
+
+  // Relations
+  index MarketIndex @relation(fields: [indexId], references: [id], onDelete: Cascade)
+
+  @@unique([indexId, date])
+  @@map("market_index_prices")
+}
+
+// Rate limiting tracking
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  userId      String
+  provider    String // "alpha_vantage", "newsapi", etc.
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+  windowEnd   DateTime
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("rate_limits")
+}
+
+model Verification {
+  id         String   @id
+  identifier String   @db.Text
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model RefreshJob {
+  id                 String            @id @default(cuid())
+  status             RefreshJobStatus  @default(PENDING)
+  totalCompanies     Int
+  processedCompanies Int               @default(0)
+  batchSize          Int               @default(5)
+  lastCompanyId      Int?
+  errorCount         Int               @default(0)
+  errors             Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+enum RefreshJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
