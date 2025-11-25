@@ -6,6 +6,7 @@ import { NewsAPI } from "@/lib/services/news-api";
 import { checkPriceAlertsForCompany } from "@/lib/services/price-alerts";
 import { SentimentAPI } from "@/lib/services/sentiment-api";
 import { isEtfCompany } from "@/lib/utils/company";
+import { resolveSymbolFromIsin } from "@/lib/services/company-resolver";
 
 const financialAPI = new FinancialAPI();
 const newsAPI = new NewsAPI();
@@ -120,14 +121,44 @@ type RefreshCompany = {
   name: string;
   industry?: string | null;
   sector?: string | null;
+  isin?: string | null;
 };
 
 async function updateStockPrice(company: RefreshCompany) {
+  let symbolToUse = company.symbol;
+
+  // If the symbol is a placeholder (ISIN-XXX), try to resolve it
+  if (company.symbol.startsWith("ISIN-") && company.isin) {
+    const resolvedSymbol = await resolveSymbolFromIsin(company.isin);
+    if (resolvedSymbol && !resolvedSymbol.startsWith("ISIN-")) {
+      // Update the company with the resolved symbol
+      try {
+        await prisma.company.update({
+          where: { id: company.id },
+          data: { symbol: resolvedSymbol },
+        });
+        symbolToUse = resolvedSymbol;
+      } catch {
+        // If update fails (e.g., symbol already exists), continue with original
+      }
+    }
+  }
+
   const stockData =
-    (await financialAPI.getStockQuote(company.symbol)) ||
-    (await financialAPI.getYahooFinanceData(company.symbol));
+    (await financialAPI.getStockQuote(symbolToUse)) ||
+    (await financialAPI.getYahooFinanceData(symbolToUse));
 
   if (!stockData) {
+    return false;
+  }
+
+  // Validate critical fields before storing
+  if (!Number.isFinite(stockData.price) || stockData.price <= 0) {
+    return false;
+  }
+
+  const parsedDate = new Date(stockData.date);
+  if (Number.isNaN(parsedDate.getTime())) {
     return false;
   }
 
@@ -135,24 +166,24 @@ async function updateStockPrice(company: RefreshCompany) {
     where: {
       companyId_date: {
         companyId: company.id,
-        date: new Date(stockData.date),
+        date: parsedDate,
       },
     },
     update: {
-      open: stockData.open,
-      high: stockData.high,
-      low: stockData.low,
+      open: Number.isFinite(stockData.open) ? stockData.open : null,
+      high: Number.isFinite(stockData.high) ? stockData.high : null,
+      low: Number.isFinite(stockData.low) ? stockData.low : null,
       close: stockData.price,
-      volume: stockData.volume,
+      volume: Number.isFinite(stockData.volume) ? stockData.volume : null,
     },
     create: {
       companyId: company.id,
-      date: new Date(stockData.date),
-      open: stockData.open,
-      high: stockData.high,
-      low: stockData.low,
+      date: parsedDate,
+      open: Number.isFinite(stockData.open) ? stockData.open : null,
+      high: Number.isFinite(stockData.high) ? stockData.high : null,
+      low: Number.isFinite(stockData.low) ? stockData.low : null,
       close: stockData.price,
-      volume: stockData.volume,
+      volume: Number.isFinite(stockData.volume) ? stockData.volume : null,
     },
   });
 
@@ -170,6 +201,20 @@ async function refreshCompanyNews(company: RefreshCompany) {
 
   for (const article of articles) {
     try {
+      // Validate required fields
+      if (!article.title || !article.url || !article.source) {
+        continue;
+      }
+
+      // Validate and parse the date
+      const publishedAt = new Date(article.publishedAt);
+      if (Number.isNaN(publishedAt.getTime())) {
+        continue;
+      }
+
+      // Truncate URL if too long (database might have varchar limit)
+      const url = article.url.length > 2000 ? article.url.slice(0, 2000) : article.url;
+
       const sentiment = await sentimentAPI.analyzeNews(
         article.title,
         article.summary,
@@ -179,23 +224,23 @@ async function refreshCompanyNews(company: RefreshCompany) {
         where: {
           companyId_url: {
             companyId: company.id,
-            url: article.url,
+            url,
           },
         },
         update: {
           title: article.title,
-          summary: article.summary,
+          summary: article.summary || null,
           source: article.source,
-          publishedAt: new Date(article.publishedAt),
+          publishedAt,
           sentiment: sentiment.sentiment,
         },
         create: {
           companyId: company.id,
           title: article.title,
-          summary: article.summary,
-          url: article.url,
+          summary: article.summary || null,
+          url,
           source: article.source,
-          publishedAt: new Date(article.publishedAt),
+          publishedAt,
           sentiment: sentiment.sentiment,
         },
       });
@@ -237,6 +282,14 @@ async function processJobBatch(job: RefreshJobRecord) {
       orderBy: { id: "asc" },
       skip: updatedJob.processedCompanies,
       take: updatedJob.batchSize,
+      select: {
+        id: true,
+        symbol: true,
+        name: true,
+        industry: true,
+        sector: true,
+        isin: true,
+      },
     });
 
     if (!companies.length) {

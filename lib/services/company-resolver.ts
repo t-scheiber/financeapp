@@ -351,45 +351,98 @@ function tryNormaliseIsin(value: string): string | null {
   return ISIN_PATTERN.test(normalised) ? normalised : null;
 }
 
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function resolveInstrumentDetails(
   query: string,
 ): Promise<InstrumentDetails | null> {
+  let lastError: unknown = null;
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=5&newsCount=0`,
+      );
+      
+      // If rate limited (429) or server error (5xx), retry
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < MAX_RETRIES) {
+          await sleep(RETRY_DELAY_MS * (attempt + 1));
+          continue;
+        }
+        return null;
+      }
+      
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        quotes?: Array<{
+          symbol?: string;
+          shortname?: string;
+          longname?: string;
+          sector?: string;
+          sectorDisp?: string;
+          industry?: string;
+          industryDisp?: string;
+        }>;
+      };
+
+      const upper = query.toUpperCase();
+      const match =
+        data.quotes?.find((quote) => quote.symbol?.toUpperCase() === upper) ??
+        data.quotes?.[0];
+
+      if (!match) {
+        return null;
+      }
+
+      return {
+        symbol: match.symbol,
+        shortName: match.shortname,
+        longName: match.longname,
+        sector: match.sector ?? match.sectorDisp,
+        industry: match.industry ?? match.industryDisp,
+      };
+    } catch (error) {
+      lastError = error;
+      // On network errors, retry if we have attempts left
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS * (attempt + 1));
+        continue;
+      }
+    }
+  }
+  
+  // Log the error in development for debugging
+  if (process.env.NODE_ENV === "development" && lastError) {
+    console.error("Yahoo Finance search failed after retries:", lastError);
+  }
+  
+  return null;
+}
+
+/**
+ * Try to resolve an ISIN to a ticker symbol via Yahoo Finance search.
+ * Returns the resolved symbol or null if not found.
+ */
+export async function resolveSymbolFromIsin(isin: string): Promise<string | null> {
+  if (!isin || isin.length < 12) {
+    return null;
+  }
+
   try {
-    const response = await fetch(
-      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=5&newsCount=0`,
-    );
-    if (!response.ok) {
-      return null;
+    const details = await resolveInstrumentDetails(isin);
+    if (details?.symbol && !details.symbol.startsWith("ISIN-")) {
+      return details.symbol.toUpperCase();
     }
-
-    const data = (await response.json()) as {
-      quotes?: Array<{
-        symbol?: string;
-        shortname?: string;
-        longname?: string;
-        sector?: string;
-        sectorDisp?: string;
-        industry?: string;
-        industryDisp?: string;
-      }>;
-    };
-
-    const upper = query.toUpperCase();
-    const match =
-      data.quotes?.find((quote) => quote.symbol?.toUpperCase() === upper) ??
-      data.quotes?.[0];
-
-    if (!match) {
-      return null;
-    }
-
-    return {
-      symbol: match.symbol,
-      shortName: match.shortname,
-      longName: match.longname,
-      sector: match.sector ?? match.sectorDisp,
-      industry: match.industry ?? match.industryDisp,
-    };
+    return null;
   } catch {
     return null;
   }

@@ -9,6 +9,7 @@ import {
   PiggyBank,
   RefreshCcw,
   Search,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   X,
@@ -50,11 +51,11 @@ type DashboardProps = {
   initialGuideSeen?: boolean;
 };
 
-const CRON_INTERVAL_MS = CRON_INTERVAL_HOURS * 60 * 60 * 1000;
+// Cron runs at fixed UTC times: 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
+const CRON_HOURS_UTC = [0, 3, 6, 9, 12, 15, 18, 21];
 const stableTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   minute: "2-digit",
-  second: "2-digit",
   hour12: true,
   timeZone: "UTC",
 });
@@ -70,17 +71,41 @@ function formatIntervalLabel(hours: number): string {
   return `${rounded} hour${rounded === 1 ? "" : "s"}`;
 }
 
-function computeNextRefresh(reference: string | null): string | null {
-  const base = reference ? new Date(reference).getTime() : Date.now();
-  if (Number.isNaN(base)) {
-    return null;
+/**
+ * Calculate the next cron refresh time based on fixed UTC schedule.
+ * Cron runs at: 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00 UTC
+ */
+function computeNextRefresh(): string {
+  const now = new Date();
+  const currentHourUTC = now.getUTCHours();
+  const currentMinuteUTC = now.getUTCMinutes();
+  
+  // Find the next cron hour
+  let nextHour = CRON_HOURS_UTC.find(h => h > currentHourUTC);
+  
+  // If we're exactly at a cron hour but past minute 0, find the next one
+  if (nextHour === undefined || (CRON_HOURS_UTC.includes(currentHourUTC) && currentMinuteUTC > 0)) {
+    nextHour = CRON_HOURS_UTC.find(h => h > currentHourUTC);
   }
-  const now = Date.now();
-  let next = base + CRON_INTERVAL_MS;
-  while (next <= now) {
-    next += CRON_INTERVAL_MS;
+  
+  // If current hour is a cron hour and we're at minute 0, that's now (or just passed)
+  if (CRON_HOURS_UTC.includes(currentHourUTC) && currentMinuteUTC === 0) {
+    nextHour = CRON_HOURS_UTC.find(h => h > currentHourUTC);
   }
-  return new Date(next).toISOString();
+  
+  const nextDate = new Date(now);
+  nextDate.setUTCSeconds(0, 0);
+  nextDate.setUTCMinutes(0);
+  
+  if (nextHour !== undefined) {
+    nextDate.setUTCHours(nextHour);
+  } else {
+    // Wrap to next day at 00:00 UTC
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    nextDate.setUTCHours(0);
+  }
+  
+  return nextDate.toISOString();
 }
 
 function formatCountdown(target: string | null): string {
@@ -108,6 +133,22 @@ function formatTimestamp(value: string | Date | null | undefined) {
     if (Number.isNaN(date.getTime())) {
       return null;
     }
+    // Format as "3:00 AM UTC" style
+    return `${stableTimeFormatter.format(date)} UTC`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format the next cron time for display
+ * Shows the fixed UTC time like "3:00 AM UTC"
+ */
+function formatNextCronTime(isoString: string | null): string | null {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return null;
     return `${stableTimeFormatter.format(date)} UTC`;
   } catch {
     return null;
@@ -139,10 +180,8 @@ export function Dashboard({
     [generatedAt],
   );
   const lastUpdated = initialTimestamp;
-  const nextRefreshAt = useMemo(
-    () => computeNextRefresh(lastUpdated),
-    [lastUpdated],
-  );
+  // Calculate next cron time based on fixed UTC schedule
+  const nextRefreshAt = useMemo(() => computeNextRefresh(), []);
   const [countdown, setCountdown] = useState<string>(() =>
     formatCountdown(nextRefreshAt),
   );
@@ -151,20 +190,33 @@ export function Dashboard({
   );
   const [guideSaving, setGuideSaving] = useState(false);
 
+  // State to track the current next refresh time (recalculated when it passes)
+  const [currentNextRefresh, setCurrentNextRefresh] = useState<string>(nextRefreshAt);
+
   useEffect(() => {
-    if (!nextRefreshAt) {
+    if (!currentNextRefresh) {
       setCountdown("pending");
       return;
     }
 
     const updateCountdown = () => {
-      setCountdown(formatCountdown(nextRefreshAt));
+      const now = Date.now();
+      const target = new Date(currentNextRefresh).getTime();
+      
+      // If we've passed the target, recalculate the next refresh time
+      if (now >= target) {
+        const newNext = computeNextRefresh();
+        setCurrentNextRefresh(newNext);
+        setCountdown(formatCountdown(newNext));
+      } else {
+        setCountdown(formatCountdown(currentNextRefresh));
+      }
     };
 
     updateCountdown();
     const timer = window.setInterval(updateCountdown, 1000);
     return () => window.clearInterval(timer);
-  }, [nextRefreshAt]);
+  }, [currentNextRefresh]);
 
   const lastUpdatedLabel = useMemo(() => {
     if (!lastUpdated) return "Fresh snapshot";
@@ -173,8 +225,8 @@ export function Dashboard({
   }, [lastUpdated]);
 
   const formattedNextRefreshTime = useMemo(
-    () => formatTimestamp(nextRefreshAt),
-    [nextRefreshAt],
+    () => formatNextCronTime(currentNextRefresh),
+    [currentNextRefresh],
   );
 
   const summary = useMemo(() => {
@@ -326,39 +378,39 @@ export function Dashboard({
             </p>
           </div>
           <div className="flex flex-col gap-4">
-            <div className="grid w-full grid-cols-1 gap-3 rounded-2xl border border-accent/20 bg-card/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur sm:grid-cols-2 lg:grid-cols-4 dark:bg-card/60">
-              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-accent/12 p-3 text-foreground transition">
-              <span className="text-xs uppercase tracking-wide opacity-70">
-                Tracked companies
-              </span>
-              <span className="text-2xl font-semibold">
-                {summary.totalCompanies}
-              </span>
-            </div>
-              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-3">
-              <span className="text-xs uppercase tracking-wide opacity-70">
-                Positive moves today
-              </span>
-              <span className="text-xl font-semibold text-foreground">
-                {summary.positiveMoves}
-              </span>
-            </div>
-              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-3">
-              <span className="text-xs uppercase tracking-wide opacity-70">
-                Price points ingested
-              </span>
-              <span className="text-xl font-semibold text-foreground">
-                {summary.pricePoints.toLocaleString()}
-              </span>
-            </div>
-              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-3">
-              <span className="text-xs uppercase tracking-wide opacity-70">
-                News signals
-              </span>
-              <span className="text-xl font-semibold text-foreground">
-                {summary.newsSignals.toLocaleString()}
-              </span>
-            </div>
+            <div className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-accent/20 bg-card/75 p-3 text-sm text-muted-foreground shadow-sm backdrop-blur sm:gap-3 sm:p-4 lg:grid-cols-4 dark:bg-card/60">
+              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-accent/12 p-2.5 text-foreground transition sm:p-3">
+                <span className="text-[10px] uppercase tracking-wide opacity-70 sm:text-xs">
+                  Tracked companies
+                </span>
+                <span className="text-xl font-semibold sm:text-2xl">
+                  {summary.totalCompanies}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-2.5 sm:p-3">
+                <span className="text-[10px] uppercase tracking-wide opacity-70 sm:text-xs">
+                  Positive moves
+                </span>
+                <span className="text-lg font-semibold text-foreground sm:text-xl">
+                  {summary.positiveMoves}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-2.5 sm:p-3">
+                <span className="text-[10px] uppercase tracking-wide opacity-70 sm:text-xs">
+                  Price points
+                </span>
+                <span className="text-lg font-semibold text-foreground sm:text-xl">
+                  {summary.pricePoints.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/60 p-2.5 sm:p-3">
+                <span className="text-[10px] uppercase tracking-wide opacity-70 sm:text-xs">
+                  News signals
+                </span>
+                <span className="text-lg font-semibold text-foreground sm:text-xl">
+                  {summary.newsSignals.toLocaleString()}
+                </span>
+              </div>
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-accent/20 bg-card/80 p-4 text-sm text-muted-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-start dark:bg-card/50">
               <div>
@@ -399,26 +451,26 @@ export function Dashboard({
                   snapshot.
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
                 {coverageHighlights.map((item) => (
                   <div
                     key={item.label}
-                    className="rounded-2xl border border-border/50 bg-card/80 p-4 dark:bg-card/40"
+                    className="rounded-xl border border-border/50 bg-card/80 p-3 sm:rounded-2xl sm:p-4 dark:bg-card/40"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent/10">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 sm:h-9 sm:w-9 sm:rounded-2xl">
                         {item.icon}
                       </span>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="min-w-0">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
                           {item.label}
                         </p>
-                        <p className="text-lg font-semibold text-foreground">
+                        <p className="text-base font-semibold text-foreground sm:text-lg">
                           {item.value}
                         </p>
                       </div>
                     </div>
-                    <p className="mt-3 text-xs text-muted-foreground">
+                    <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground sm:mt-3 sm:text-xs">
                       {item.helper}
                     </p>
                   </div>
@@ -506,44 +558,65 @@ export function Dashboard({
         </Card>
 
         {companies.length === 0 ? (
-          <Card className="glass-panel flex flex-col items-center justify-center rounded-3xl p-10 text-center shadow-lg">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-accent">
-              <BarChart3 className="h-5 w-5" />
+          <Card className="glass-panel flex flex-col items-center justify-center rounded-3xl p-12 text-center shadow-lg animate-fade-in-up">
+            <div className="mb-6 relative">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent/10 text-accent">
+                <BarChart3 className="h-10 w-10" />
+              </div>
+              <div className="absolute -inset-2 rounded-full bg-accent/5 animate-float-soft" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-xl font-semibold text-foreground">
               No companies tracked yet
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Once companies are ingested they will show here with live pricing,
-              dividends, and sentiment coverage.
+            <p className="mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
+              Your personalized dashboard awaits! Add companies to your watchlist via the Settings page to see live pricing, dividends, and AI-powered sentiment coverage.
             </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href="/settings">
+                <Button className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Get started
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                onClick={() => setGuideDialogOpen(true)}
+              >
+                View quick tour
+              </Button>
+            </div>
           </Card>
         ) : visibleCount === 0 ? (
-          <Card className="glass-panel flex flex-col items-center justify-center rounded-3xl p-10 text-center shadow-lg">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-accent">
-              <Search className="h-5 w-5" aria-hidden="true" />
+          <Card className="glass-panel flex flex-col items-center justify-center rounded-3xl p-10 text-center shadow-lg animate-fade-in-up">
+            <div className="mb-5 relative">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Search className="h-7 w-7" aria-hidden="true" />
+              </div>
             </div>
             <h3 className="text-lg font-semibold text-foreground">
               No matches found
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              We couldn&apos;t find any companies matching "
-              <span className="font-medium text-foreground">
-                {searchTerm.trim()}
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              We couldn&apos;t find any companies matching{" "}
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground">
+                &quot;{searchTerm.trim()}&quot;
               </span>
-              ". Try a different name, ticker, or ISIN.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Try a different name, ticker symbol, or ISIN
             </p>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setSearchTerm("")}
-              className="mt-4"
+              className="mt-5 gap-2"
             >
+              <X className="h-3.5 w-3.5" />
               Clear search
             </Button>
           </Card>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredCompanies.map((company, index) => {
               const latestPrice = company.latestPrice;
               const closeValue =

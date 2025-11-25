@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma";
 
+// Cache companies list for 60 seconds (revalidate on data changes)
+export const revalidate = 60;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -33,7 +36,14 @@ export async function GET(request: NextRequest) {
 
     const companies = await prisma.company.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        symbol: true,
+        isin: true,
+        sector: true,
+        industry: true,
+        description: true,
         _count: {
           select: {
             stockPrices: true,
@@ -47,7 +57,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(companies);
+    const response = NextResponse.json(companies);
+    // Add cache headers for client-side caching
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+    return response;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch companies";

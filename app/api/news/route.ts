@@ -30,8 +30,26 @@ export async function GET(request: NextRequest) {
         where: { companyId },
         orderBy: { publishedAt: "desc" },
         take: 20,
+        select: {
+          id: true,
+          title: true,
+          summary: true,
+          url: true,
+          source: true,
+          publishedAt: true,
+          sentiment: true,
+          biasLevel: true,
+          biasType: true,
+          biasWarning: true,
+        },
       });
-      return NextResponse.json(news);
+      const response = NextResponse.json(news);
+      // Cache news for 10 minutes
+      response.headers.set(
+        "Cache-Control",
+        "public, s-maxage=600, stale-while-revalidate=1800"
+      );
+      return response;
     }
 
     if (companyName) {

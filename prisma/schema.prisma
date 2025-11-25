@@ -118,6 +118,7 @@ model StockPrice {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, date])
+  @@index([companyId, date(sort: Desc)], name: "stock_prices_company_date_idx")
   @@map("stock_prices")
 }
 
@@ -137,6 +138,7 @@ model Dividend {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, exDividendDate])
+  @@index([companyId, exDividendDate(sort: Desc)], name: "dividends_company_date_idx")
   @@map("dividends")
 }
 
@@ -151,12 +153,16 @@ model News {
   source      String
   publishedAt DateTime
   sentiment   String? // positive, negative, neutral
+  biasLevel   String? // low, medium, high
+  biasType    String? // state_media, pr_wire, promotional, partisan, none
+  biasWarning String? // Human-readable warning message
   createdAt   DateTime @default(now())
 
   // Relations
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, url])
+  @@index([companyId, publishedAt(sort: Desc)], name: "news_company_published_idx")
   @@map("news")
 }
 

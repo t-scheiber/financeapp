@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/db";
+import { resolveSymbolFromIsin } from "@/lib/services/company-resolver";
 import { FinancialAPI } from "@/lib/services/financial-api";
 import { getUserApiKey } from "@/lib/services/user-api-keys";
 import { ensureUserByEmail } from "@/lib/services/users";
@@ -62,8 +63,34 @@ export async function GET(
       );
     }
 
+    // Resolve ISIN placeholder symbols before fetching dividends
+    let symbolToUse = company.symbol;
+    if (company.symbol.startsWith("ISIN-") && company.isin) {
+      const resolvedSymbol = await resolveSymbolFromIsin(company.isin);
+      if (resolvedSymbol && !resolvedSymbol.startsWith("ISIN-")) {
+        // Update the company with the resolved symbol
+        try {
+          await prisma.company.update({
+            where: { id: company.id },
+            data: { symbol: resolvedSymbol },
+          });
+          symbolToUse = resolvedSymbol;
+        } catch {
+          // If update fails (e.g., symbol already exists), continue with original
+        }
+      }
+    }
+
+    // If still a placeholder symbol, can't fetch dividends
+    if (symbolToUse.startsWith("ISIN-")) {
+      return NextResponse.json({
+        dividends: [],
+        info: "Unable to resolve ticker symbol from ISIN. Please add the company using its ticker symbol.",
+      });
+    }
+
     const financialApi = new FinancialAPI(alphaKey);
-    const dividends = await financialApi.getDividends(company.symbol);
+    const dividends = await financialApi.getDividends(symbolToUse);
 
     return NextResponse.json({ dividends: dividends.dividends });
   } catch (error) {
