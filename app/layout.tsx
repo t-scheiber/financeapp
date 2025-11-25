@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { DesignProvider } from "@/components/design-provider";
@@ -7,6 +8,14 @@ import { Header } from "@/components/header";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+
+// Optimized font loading with subset and display swap
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+  preload: true,
+});
 
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://financeapp.local";
@@ -65,7 +74,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className="min-h-screen bg-background text-foreground">
+      <body className={`${inter.variable} min-h-screen bg-background font-sans text-foreground antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <DesignProvider>
             <FeatureToggleProvider>

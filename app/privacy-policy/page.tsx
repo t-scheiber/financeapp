@@ -1,9 +1,9 @@
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-card rounded-lg shadow-sm p-8">
-          <h1 className="text-3xl font-bold text-foreground mb-8">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm sm:rounded-3xl sm:p-8">
+          <h1 className="text-2xl font-bold text-foreground mb-6 sm:text-3xl sm:mb-8">
             Privacy Policy
           </h1>
 

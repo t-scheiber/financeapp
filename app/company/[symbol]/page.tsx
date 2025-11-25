@@ -13,16 +13,12 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  XAxis,
-} from "recharts";
 import { useSession } from "@/lib/auth-client";
 import { useFeatureToggles } from "@/components/feature-toggle-provider";
-import { StockChart } from "@/components/stock-chart";
+import { LazyForecastChart } from "@/components/lazy-forecast-chart";
+import { LazyStockChart } from "@/components/lazy-stock-chart";
+import { NewsList } from "@/components/news-list";
+import { PriceHistoryList } from "@/components/price-history-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,32 +94,6 @@ interface MarketIndexSummary {
   changePercent: number;
 }
 
-// Helper function to get sentiment badge styling
-function getSentimentStyle(sentiment?: string) {
-  switch (sentiment) {
-    case "positive":
-      return "bg-accent/10 text-accent border-accent/30";
-    case "negative":
-      return "bg-destructive/10 text-destructive border-destructive/30";
-    case "neutral":
-      return "bg-muted text-muted-foreground border-border";
-    default:
-      return "bg-muted text-muted-foreground border-border";
-  }
-}
-
-function getSentimentIcon(sentiment?: string) {
-  switch (sentiment) {
-    case "positive":
-      return "😊";
-    case "negative":
-      return "😟";
-    case "neutral":
-      return "😐";
-    default:
-      return "";
-  }
-}
 
 export default function CompanyPage({
   params,
@@ -566,8 +536,14 @@ export default function CompanyPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="relative">
+          <div className="h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center">
+            <Building2 className="h-8 w-8 text-accent/50" />
+          </div>
+          <div className="absolute inset-0 h-16 w-16 animate-spin rounded-full border-2 border-transparent border-t-accent" />
+        </div>
+        <p className="text-sm text-muted-foreground animate-pulse">Loading company data...</p>
       </div>
     );
   }
@@ -606,11 +582,15 @@ export default function CompanyPage({
 
       {/* Company Header */}
       <div className="mb-8">
-        <div className="mb-2 flex flex-wrap items-center gap-3">
-          <Building2 className="h-8 w-8 text-accent" />
-          <h1 className="text-3xl font-bold text-foreground">{company.name}</h1>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent sm:h-10 sm:w-10">
+              <Building2 className="h-6 w-6 sm:h-5 sm:w-5" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{company.name}</h1>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="px-3 py-1 text-base">
+            <Badge variant="secondary" className="px-3 py-1 text-sm sm:text-base">
               {company.symbol}
             </Badge>
             {company.isin ? (
@@ -630,19 +610,19 @@ export default function CompanyPage({
             ) : null}
           </div>
         </div>
-        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span>
             <span className="font-medium">Sector:</span>{" "}
             {company.sector || "N/A"}
           </span>
-          <span>•</span>
+          <span className="hidden sm:inline">•</span>
           <span>
             <span className="font-medium">Industry:</span>{" "}
             {company.industry || "N/A"}
           </span>
         </div>
         {company.description && (
-          <p className="mt-3 text-foreground/90">{company.description}</p>
+          <p className="mt-3 text-sm text-foreground/90 sm:text-base">{company.description}</p>
         )}
       </div>
 
@@ -715,51 +695,7 @@ export default function CompanyPage({
             ) : (
               <div className="space-y-4">
                 {showForecast ? (
-                  <div className="h-48 w-full overflow-hidden rounded-xl border border-border/60 bg-card/70 p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={forecast}>
-                        <defs>
-                          <linearGradient
-                            id="forecastGradient"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#2563eb"
-                              stopOpacity={0.35}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#2563eb"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fontSize: 12 }}
-                          stroke="hsl(215.4 16.3% 46.9%)"
-                        />
-                        <RechartsTooltip
-                          formatter={(value: number) => [
-                            formatCurrency(value as number),
-                            "Projected close",
-                          ]}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="predictedPrice"
-                          stroke="#2563eb"
-                          strokeWidth={2}
-                          fill="url(#forecastGradient)"
-                          activeDot={{ r: 4 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <LazyForecastChart data={forecast} formatCurrency={formatCurrency} />
                 ) : null}
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
@@ -1049,12 +985,12 @@ export default function CompanyPage({
       {stockPrices.length > 0 ? (
         <Card className="mb-8">
           <CardContent className="pt-6">
-            <StockChart stockPrices={stockPrices} news={news} />
+            <LazyStockChart stockPrices={stockPrices} news={news} />
           </CardContent>
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
         {/* Stock Price History */}
         <Card>
           <CardHeader>
@@ -1064,60 +1000,7 @@ export default function CompanyPage({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {stockPrices.length > 0 ? (
-              <div className="space-y-3">
-                {stockPrices.slice(0, 30).map((price) => {
-                  const dayChange =
-                    price.open && price.close ? price.close - price.open : null;
-                  return (
-                    <div
-                      key={price.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 dark:hover:bg-muted/30"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(price.date).toLocaleDateString()}
-                        </span>
-                        <span className="text-lg font-bold">
-                          ${price.close.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground/80">
-                        <div className="space-x-3">
-                          {price.open && (
-                            <span>Open: ${price.open.toFixed(2)}</span>
-                          )}
-                          {price.high && (
-                            <span>High: ${price.high.toFixed(2)}</span>
-                          )}
-                          {price.low && (
-                            <span>Low: ${price.low.toFixed(2)}</span>
-                          )}
-                        </div>
-                        {dayChange !== null && (
-                          <span
-                            className={`font-semibold ${
-                              dayChange > 0
-                                ? "text-accent"
-                                : dayChange < 0
-                                  ? "text-destructive"
-                                  : "text-muted-foreground"
-                            }`}
-                          >
-                            {dayChange > 0 ? "+" : ""}
-                            {dayChange.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-8">
-                No price history available
-              </p>
-            )}
+            <PriceHistoryList stockPrices={stockPrices} maxItems={30} />
           </CardContent>
         </Card>
 
@@ -1156,47 +1039,7 @@ export default function CompanyPage({
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : news.length > 0 ? (
-              <div className="space-y-4">
-                {news.map((article) => (
-                  <div
-                    key={article.id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 dark:hover:bg-muted/30"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-sm leading-tight flex-1">
-                        {article.title}
-                      </h3>
-                      {sentimentSignalsEnabled && article.sentiment && (
-                        <span
-                          className={`ml-2 px-2 py-1 rounded-full text-xs font-medium border ${getSentimentStyle(article.sentiment)}`}
-                        >
-                          {getSentimentIcon(article.sentiment)}{" "}
-                          {article.sentiment}
-                        </span>
-                      )}
-                    </div>
-                    {article.summary && (
-                      <p className="text-xs text-muted-foreground mb-3 line-clamp-3">
-                        {article.summary}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground/80 mb-2">
-                      <span className="font-medium">{article.source}</span>
-                      <span>
-                        {new Date(article.publishedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0 h-auto text-xs text-accent hover:text-accent/80"
-                      onClick={() => window.open(article.url, "_blank")}
-                    >
-                      Read full article
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              <NewsList news={news} showSentiment={sentimentSignalsEnabled} />
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">

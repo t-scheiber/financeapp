@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getServerSession } from "@/lib/auth-server";
 import { NewsAPI } from "@/lib/services/news-api";
 import { SentimentAPI } from "@/lib/services/sentiment-api";
+import { getUserApiKey } from "@/lib/services/user-api-keys";
+import { ensureUserByEmail } from "@/lib/services/users";
 import { isEtfCompany } from "@/lib/utils/company";
-
-const newsAPI = new NewsAPI();
-const sentimentAPI = new SentimentAPI();
 
 type RefreshPayload = {
   companyId?: number;
@@ -25,6 +25,41 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Get user session for user-specific API keys
+    const session = await getServerSession();
+    let userId: string | undefined;
+    
+    if (session?.user?.email) {
+      const user = await ensureUserByEmail({
+        email: session.user.email,
+        name: session.user.name ?? null,
+        image: session.user.image ?? null,
+      });
+      if (user) {
+        userId = user.id;
+      }
+    }
+
+    // Try to get user's API keys, fall back to app-level keys
+    let newsApiKey: string | undefined;
+    let huggingFaceApiKey: string | undefined;
+    
+    if (userId) {
+      const userNewsKey = await getUserApiKey(userId, "newsapi");
+      if (userNewsKey) {
+        newsApiKey = userNewsKey;
+      }
+      const userHfKey = await getUserApiKey(userId, "huggingface");
+      if (userHfKey) {
+        huggingFaceApiKey = userHfKey;
+      }
+    }
+    
+    // If no user key, NewsAPI will use process.env.NEWS_API_KEY
+    const newsAPI = new NewsAPI(newsApiKey);
+    // If no user key, SentimentAPI will use process.env.HUGGINGFACE_API_KEY or keyword analysis
+    const sentimentAPI = new SentimentAPI(huggingFaceApiKey);
 
     const orConditions: Array<{ id?: number; name?: string }> = [];
     if (companyId) {
@@ -62,9 +97,11 @@ export async function POST(request: NextRequest) {
 
     for (const article of articles) {
       try {
-        const sentimentResult = await sentimentAPI.analyzeNews(
+        // Use enhanced analysis with bias detection
+        const analysisResult = await sentimentAPI.analyzeNewsWithBias(
           article.title,
           article.summary,
+          article.source,
         );
 
         await prisma.news.upsert({
@@ -79,7 +116,10 @@ export async function POST(request: NextRequest) {
             summary: article.summary,
             source: article.source,
             publishedAt: new Date(article.publishedAt),
-            sentiment: sentimentResult.sentiment,
+            sentiment: analysisResult.adjustedSentiment || analysisResult.sentiment,
+            biasLevel: analysisResult.bias?.biasLevel || null,
+            biasType: analysisResult.bias?.biasType || null,
+            biasWarning: analysisResult.bias?.warning || null,
           },
           create: {
             companyId: company.id,
@@ -88,7 +128,10 @@ export async function POST(request: NextRequest) {
             url: article.url,
             source: article.source,
             publishedAt: new Date(article.publishedAt),
-            sentiment: sentimentResult.sentiment,
+            sentiment: analysisResult.adjustedSentiment || analysisResult.sentiment,
+            biasLevel: analysisResult.bias?.biasLevel || null,
+            biasType: analysisResult.bias?.biasType || null,
+            biasWarning: analysisResult.bias?.warning || null,
           },
         });
 

@@ -199,6 +199,7 @@
   }
   body {
     @apply text-foreground antialiased;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     background-color: var(--background);
     background-image:
       radial-gradient(

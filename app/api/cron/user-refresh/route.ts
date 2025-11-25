@@ -7,13 +7,6 @@ import { SentimentAPI } from "@/lib/services/sentiment-api";
 import { getUserApiKey } from "@/lib/services/user-api-keys";
 import { isEtfCompany } from "@/lib/utils/company";
 
-// Helper function for cron jobs (no session context)
-async function getDemoUserEmail(): Promise<string> {
-  // In a real implementation, this would get the user from a job parameter
-  // For now, return the demo user
-  return "demo@example.com";
-}
-
 // Verify the request is from a cron job
 function verifyCronSecret(request: NextRequest): boolean {
   const authHeader = request.headers.get("authorization");
@@ -43,132 +36,177 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    // For now, we'll process a demo user
-    // In a real implementation, you'd iterate through all users
-    const demoUserEmail = await getDemoUserEmail(); // This would come from your user database
+    // Get all users with valid API keys
+    const usersWithKeys = await prisma.userApiKey.findMany({
+      where: {
+        provider: "alpha_vantage",
+        isValid: true,
+      },
+      select: {
+        userId: true,
+      },
+      distinct: ["userId"],
+    });
 
-    // Get user's API keys
-    const alphaVantageKey = await getUserApiKey(demoUserEmail, "alpha_vantage");
-    const newsApiKey = await getUserApiKey(demoUserEmail, "newsapi");
-    const huggingFaceKey = await getUserApiKey(demoUserEmail, "huggingface");
-
-    if (!alphaVantageKey || !newsApiKey) {
+    if (usersWithKeys.length === 0) {
       return NextResponse.json({
         success: false,
-        error: "Missing required API keys",
+        error: "No users with valid API keys found",
       });
     }
 
-    // Initialize APIs with user's keys
-    const financialAPI = new FinancialAPI(alphaVantageKey);
-    const newsAPI = new NewsAPI(newsApiKey);
-    const sentimentAPI = new SentimentAPI(huggingFaceKey || undefined);
-
-    // Get user's watchlist companies
-    // For demo, we'll use a subset of companies
-    const companies = await prisma.company.findMany({
-      take: 5, // Process only first 5 companies for demo
-    });
-
-    results.usersProcessed = 1;
-
-    for (const company of companies) {
+    // Process each user
+    for (const { userId } of usersWithKeys) {
       try {
-        // Fetch and update stock prices
-        const stockData =
-          (await financialAPI.getStockQuote(company.symbol)) ||
-          (await financialAPI.getYahooFinanceData(company.symbol));
+        // Get user's API keys
+        const alphaVantageKey = await getUserApiKey(userId, "alpha_vantage");
+        const newsApiKey = await getUserApiKey(userId, "newsapi");
+        const huggingFaceKey = await getUserApiKey(userId, "huggingface");
 
-        if (stockData) {
-          await prisma.stockPrice.upsert({
-            where: {
-              companyId_date: {
-                companyId: company.id,
-                date: new Date(stockData.date),
-              },
-            },
-            update: {
-              open: stockData.open,
-              high: stockData.high,
-              low: stockData.low,
-              close: stockData.price,
-              volume: stockData.volume,
-            },
-            create: {
-              companyId: company.id,
-              date: new Date(stockData.date),
-              open: stockData.open,
-              high: stockData.high,
-              low: stockData.low,
-              close: stockData.price,
-              volume: stockData.volume,
-            },
-          });
-          results.companiesUpdated++;
+        if (!alphaVantageKey) {
+          results.errors.push(`User ${userId}: Missing Alpha Vantage API key`);
+          continue;
         }
 
-        // Small delay between API calls
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Initialize APIs with user's keys
+        const financialAPI = new FinancialAPI(alphaVantageKey);
+        const newsAPI = newsApiKey ? new NewsAPI(newsApiKey) : null;
+        const sentimentAPI = new SentimentAPI(huggingFaceKey || undefined);
 
-        if (!isEtfCompany(company)) {
-          const articles = await newsAPI.getCompanyNews(company.name, 5);
+        // Get user's watchlist companies
+        const userWatchlists = await prisma.watchlist.findMany({
+          where: { userId },
+          include: {
+            companies: {
+              include: { company: true },
+            },
+          },
+        });
 
-          for (const article of articles) {
-            const existingNews = await prisma.news.findFirst({
-              where: {
-                companyId: company.id,
-                url: article.url,
-              },
-            });
+        // Get unique companies from user's watchlists
+        const companiesMap = new Map<number, typeof userWatchlists[0]["companies"][0]["company"]>();
+        for (const watchlist of userWatchlists) {
+          for (const wc of watchlist.companies) {
+            companiesMap.set(wc.company.id, wc.company);
+          }
+        }
+        const companies = Array.from(companiesMap.values());
 
-            if (!existingNews) {
-              const sentimentResult = await sentimentAPI.analyzeNews(
-                article.title,
-                article.summary,
-              );
+        if (companies.length === 0) {
+          continue; // Skip users with no watchlist companies
+        }
 
-              await prisma.news.create({
-                data: {
+        results.usersProcessed++;
+
+        // Get user email for notifications
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+        const userEmail = user?.email || userId;
+
+        for (const company of companies) {
+          try {
+            // Fetch and update stock prices
+            const stockData =
+              (await financialAPI.getStockQuote(company.symbol)) ||
+              (await financialAPI.getYahooFinanceData(company.symbol));
+
+            if (stockData) {
+              await prisma.stockPrice.upsert({
+                where: {
+                  companyId_date: {
+                    companyId: company.id,
+                    date: new Date(stockData.date),
+                  },
+                },
+                update: {
+                  open: stockData.open,
+                  high: stockData.high,
+                  low: stockData.low,
+                  close: stockData.price,
+                  volume: stockData.volume,
+                },
+                create: {
                   companyId: company.id,
-                  title: article.title,
-                  summary: article.summary,
-                  url: article.url,
-                  source: article.source,
-                  publishedAt: new Date(article.publishedAt),
-                  sentiment: sentimentResult.sentiment,
+                  date: new Date(stockData.date),
+                  open: stockData.open,
+                  high: stockData.high,
+                  low: stockData.low,
+                  close: stockData.price,
+                  volume: stockData.volume,
                 },
               });
-
-              results.newsAnalyzed++;
-
-              if (
-                sentimentResult.sentiment === "negative" ||
-                sentimentResult.sentiment === "positive"
-              ) {
-                await notifyBreakingNews(
-                  demoUserEmail,
-                  demoUserEmail,
-                  company.symbol,
-                  article.title,
-                  article.summary || "",
-                  article.url,
-                  sentimentResult.sentiment,
-                );
-                results.notificationsSent++;
-              }
+              results.companiesUpdated++;
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
-        } else {
-          results.newsSkippedForEtfs++;
-        }
+            // Small delay between API calls
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // Delay between companies
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+            // Skip news for ETFs or if no NewsAPI key
+            if (!isEtfCompany(company) && newsAPI) {
+              const articles = await newsAPI.getCompanyNews(company.name, 5);
+
+              for (const article of articles) {
+                const existingNews = await prisma.news.findFirst({
+                  where: {
+                    companyId: company.id,
+                    url: article.url,
+                  },
+                });
+
+                if (!existingNews) {
+                  const sentimentResult = await sentimentAPI.analyzeNews(
+                    article.title,
+                    article.summary,
+                  );
+
+                  await prisma.news.create({
+                    data: {
+                      companyId: company.id,
+                      title: article.title,
+                      summary: article.summary,
+                      url: article.url,
+                      source: article.source,
+                      publishedAt: new Date(article.publishedAt),
+                      sentiment: sentimentResult.sentiment,
+                    },
+                  });
+
+                  results.newsAnalyzed++;
+
+                  if (
+                    sentimentResult.sentiment === "negative" ||
+                    sentimentResult.sentiment === "positive"
+                  ) {
+                    await notifyBreakingNews(
+                      userId,
+                      userEmail,
+                      company.symbol,
+                      article.title,
+                      article.summary || "",
+                      article.url,
+                      sentimentResult.sentiment,
+                    );
+                    results.notificationsSent++;
+                  }
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+            } else if (isEtfCompany(company)) {
+              results.newsSkippedForEtfs++;
+            }
+
+            // Delay between companies
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          } catch (error) {
+            const errorMsg = `Error processing ${company.name}: ${error instanceof Error ? error.message : "Unknown error"}`;
+            results.errors.push(errorMsg);
+          }
+        }
       } catch (error) {
-        const errorMsg = `Error processing ${company.name}: ${error instanceof Error ? error.message : "Unknown error"}`;
-        results.errors.push(errorMsg);
+        results.errors.push(`Error processing user ${userId}: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     }
 
