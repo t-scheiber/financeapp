@@ -34,24 +34,27 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", rel: "icon", sizes: "any" },
-      {
-        url: "/pwa-icon-192.png",
-        type: "image/png",
-        sizes: "192x192",
-      },
-      {
-        url: "/pwa-icon-512.png",
-        type: "image/png",
-        sizes: "512x512",
-      },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/pwa-icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/pwa-icon-512.png", type: "image/png", sizes: "512x512" },
     ],
     apple: [
-      {
-        url: "/apple-touch-icon.png",
-        sizes: "180x180",
-      },
+      // iPhone (standard)
+      { url: "/apple-touch-icon-120.png", sizes: "120x120" },
+      // iPhone Retina
+      { url: "/apple-touch-icon-180.png", sizes: "180x180" },
+      // iPad
+      { url: "/apple-touch-icon-152.png", sizes: "152x152" },
+      // iPad Pro
+      { url: "/apple-touch-icon-167.png", sizes: "167x167" },
+      // Default apple-touch-icon (iOS will use this if no specific size matches)
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
     ],
+    shortcut: [{ url: "/favicon.ico" }],
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -70,9 +73,26 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* PWA Meta Tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="FinanceApp" />
         <meta name="mobile-web-app-capable" content="yes" />
+        
+        {/* Apple Touch Icons for different devices */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
+        
+        {/* Mask icon for Safari pinned tabs */}
+        <link rel="mask-icon" href="/icon.svg" color="#040711" />
+        
+        {/* Microsoft Tiles */}
+        <meta name="msapplication-TileColor" content="#040711" />
+        <meta name="msapplication-TileImage" content="/pwa-icon-192.png" />
+        <meta name="msapplication-config" content="none" />
       </head>
       <body className={`${inter.variable} min-h-screen bg-background font-sans text-foreground antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
