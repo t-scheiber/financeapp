@@ -50,3 +50,9 @@ AuthKey_*.p8
 next-env.d.ts
 
 /lib/generated/prisma
+
+.claude/
+.vscode/
+.cursor/
+.chatgpt/
+.gemini/
