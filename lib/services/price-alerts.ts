@@ -1,4 +1,4 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { PrismaClientKnownRequestError } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import { resolveOrCreateCompany } from "@/lib/services/company-resolver";
 import { notifyPriceAlert } from "@/lib/services/notifications";
