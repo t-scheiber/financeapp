@@ -1,4 +1,4 @@
-import type { InputJsonValue } from "@prisma/client/runtime/library";
+import type { InputJsonValue } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import type { EfficientFrontierPoint } from "@/lib/services/portfolios";
 
