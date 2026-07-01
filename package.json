@@ -48,7 +48,7 @@
     "@typescript-eslint/parser": "^8.57.1",
     "dotenv": "^17.4.2",
     "eslint": "^10.0.3",
-    "eslint-config-next": "^16.1.7",
+    "eslint-config-next": "^16.2.9",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.1",
