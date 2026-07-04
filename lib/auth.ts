@@ -49,7 +49,7 @@ const isSecureEnvironment =
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: "mysql",
+    provider: "sqlite",
   }),
   emailAndPassword: {
     enabled: false, // Only using OAuth providers

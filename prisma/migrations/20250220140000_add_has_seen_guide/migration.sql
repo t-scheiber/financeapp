@@ -1,3 +1,0 @@
-ALTER TABLE `User`
-ADD COLUMN `hasSeenGuide` BOOLEAN NOT NULL DEFAULT false;
-

@@ -83,7 +83,7 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
 
 - **Framework**: Next.js 16 (App Router)
 - **Auth**: Better Auth (Google & Apple OAuth)
-- **Database**: MySQL + Prisma ORM
+- **Database**: SQLite + Prisma ORM
 - **UI**: Tailwind CSS + shadcn/ui
 - **Charts**: Recharts
 - **Language**: TypeScript
@@ -95,7 +95,7 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
 ## ✅ Prerequisites
 
 - **Bun 1.3.1+** (package manager and runtime)
-- MySQL instance
+- SQLite (file-based, no separate DB server required)
 - Google OAuth or Apple OAuth credentials
 - Alpha Vantage API key (optional, for financial data)
 - NewsAPI key (optional, for news articles)
@@ -128,8 +128,8 @@ FinanceApp keeps every market workflow behind authenticated screens. Each sectio
    # Email allowlist (production recommended)
    ALLOWED_EMAILS=user@example.com,admin@company.org
 
-   # Database
-   DATABASE_URL=mysql://user:password@localhost:3306/financeapp
+   # Database (SQLite file, created automatically on first start)
+   DATABASE_URL=file:./data/finance.db
 
    # APIs
    ALPHA_VANTAGE_API_KEY=your-alpha-vantage-api-key
@@ -319,11 +319,29 @@ model RefreshJob {
 
 ## 🚀 Deployment
 
-### Vercel (recommended)
+### Coolify (self-hosted, low resource)
+
+No separate database container needed — the app uses a SQLite file.
+
+1. Deploy from GitHub (`main` branch, Nixpacks build is fine).
+2. Set environment variables (see `env.example`). At minimum:
+   - `NEXT_PUBLIC_APP_URL` — **enable “Available at Buildtime”**
+   - `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
+   - `ALLOWED_EMAILS`, `ENCRYPTION_KEY`, `CRON_SECRET`
+3. **Persistent storage**: mount a volume at `/app/data` so the SQLite file survives redeploys.
+   - Default path: `file:./data/finance.db` (relative to `/app` in the container)
+   - Or set `DATABASE_URL=file:/app/data/finance.db` explicitly
+4. On start, the app runs `prisma migrate deploy` automatically, then `next start`.
+
+You can remove any MySQL/MariaDB service from the Coolify stack for this app.
+
+### Vercel
 
 1. Push the repository to GitHub.
 2. Connect the repo in Vercel and copy environment variables.
 3. Add a cron integration (or external scheduler) to call `/api/cron/refresh-data`.
+
+Note: Vercel serverless has an ephemeral filesystem — SQLite is not ideal there unless you use a persistent volume addon or switch back to a hosted SQL database.
 
 ### Manual
 

@@ -49,6 +49,13 @@ AuthKey_*.p8
 *.tsbuildinfo
 next-env.d.ts
 
+# sqlite
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 /lib/generated/prisma
 
 .claude/
