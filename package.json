@@ -10,8 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "format": "eslint . --ext .ts,.tsx --fix",
-    "postinstall": "prisma generate"
+    "format": "eslint . --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "7.8.0",
