@@ -1,4 +1,4 @@
-import { PrismaClientKnownRequestError } from "@/lib/generated/prisma";
+import { Prisma } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import { FinancialAPI } from "@/lib/services/financial-api";
 
@@ -161,7 +161,7 @@ export async function resolveOrCreateCompany(options: {
     } catch (error) {
       // Handle Prisma unique constraint violations
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
         // Unique constraint violation - try to find the existing company
@@ -274,7 +274,7 @@ export async function resolveOrCreateCompany(options: {
       } catch (createError) {
         // If creation fails due to unique constraint, find existing company
         if (
-          createError instanceof PrismaClientKnownRequestError &&
+          createError instanceof Prisma.PrismaClientKnownRequestError &&
           createError.code === "P2002"
         ) {
           const existing = await prisma.company.findUnique({

@@ -1,4 +1,4 @@
-import { PrismaClientKnownRequestError } from "@/lib/generated/prisma";
+import { Prisma } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import { resolveOrCreateCompany } from "@/lib/services/company-resolver";
 import { notifyPriceAlert } from "@/lib/services/notifications";
@@ -103,7 +103,7 @@ export async function createPriceAlert({
     };
   } catch (error) {
     if (
-      error instanceof PrismaClientKnownRequestError &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
       const existing = await prisma.priceAlert.findFirstOrThrow({

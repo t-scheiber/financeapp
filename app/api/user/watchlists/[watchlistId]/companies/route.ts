@@ -1,4 +1,4 @@
-import { PrismaClientKnownRequestError } from "@/lib/generated/prisma";
+import { Prisma } from "@/lib/generated/prisma";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
@@ -148,7 +148,7 @@ export async function POST(
       await addCompanyToWatchlist(watchlist.id, company.id);
     } catch (error) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
         const current = await getWatchlist(watchlist.id);

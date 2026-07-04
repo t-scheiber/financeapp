@@ -1,4 +1,4 @@
-import type { InputJsonValue } from "@/lib/generated/prisma";
+import type { Prisma } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/db";
 import type { EfficientFrontierPoint } from "@/lib/services/portfolios";
 
@@ -299,15 +299,15 @@ export async function buildEfficientFrontier(portfolioId: string): Promise<{
     where: { portfolioId },
     create: {
       portfolioId,
-      maxSharpeWeights: maxSharpePoint.weights as unknown as InputJsonValue,
-      minVarianceWeights: minVariancePoint.weights as unknown as InputJsonValue,
-      efficientFrontier: trimmedFrontier as unknown as InputJsonValue,
+      maxSharpeWeights: maxSharpePoint.weights as unknown as Prisma.InputJsonValue,
+      minVarianceWeights: minVariancePoint.weights as unknown as Prisma.InputJsonValue,
+      efficientFrontier: trimmedFrontier as unknown as Prisma.InputJsonValue,
       calculatedAt,
     },
     update: {
-      maxSharpeWeights: maxSharpePoint.weights as unknown as InputJsonValue,
-      minVarianceWeights: minVariancePoint.weights as unknown as InputJsonValue,
-      efficientFrontier: trimmedFrontier as unknown as InputJsonValue,
+      maxSharpeWeights: maxSharpePoint.weights as unknown as Prisma.InputJsonValue,
+      minVarianceWeights: minVariancePoint.weights as unknown as Prisma.InputJsonValue,
+      efficientFrontier: trimmedFrontier as unknown as Prisma.InputJsonValue,
       calculatedAt,
     },
   });

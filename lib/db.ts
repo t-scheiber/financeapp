@@ -1,27 +1,20 @@
 import { PrismaClient } from "./generated/prisma";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const databaseUrl = process.env.DATABASE_URL;
+// Build time or missing env - dummy URL so build completes; will fail if used at runtime
+const databaseUrl =
+  process.env.DATABASE_URL || "mysql://dummy:dummy@localhost:3306/dummy";
 
-let prismaClient: PrismaClient;
-
-if (!databaseUrl) {
-  // Build time or missing env - dummy URL so build completes; will fail if used at runtime
-  prismaClient = new PrismaClient({
-    datasourceUrl: "mysql://dummy:dummy@localhost:3306/dummy",
+const createClient = () =>
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query"] : [],
+    adapter: new PrismaMariaDb(databaseUrl),
   });
-} else {
-  prismaClient =
-    globalForPrisma.prisma ??
-    new PrismaClient({
-      log: process.env.NODE_ENV === "development" ? ["query"] : [],
-      datasourceUrl: databaseUrl,
-    });
-}
 
-export const prisma = prismaClient;
+export const prisma = globalForPrisma.prisma ?? createClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
