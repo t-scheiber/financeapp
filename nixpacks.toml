@@ -1,0 +1,3 @@
+# better-sqlite3 compiles native bindings during install
+[phases.setup]
+aptPkgs = ["build-essential", "python3"]
