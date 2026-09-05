@@ -30,13 +30,13 @@ async function generateIcons() {
   console.log("🎨 Generating PWA icons...\n");
 
   // Check if sharp is available
-  let sharp: typeof import("sharp") | null = null;
+  let sharp: typeof import("sharp").sharp | null = null;
   try {
-    sharp = (await import("sharp")).default;
+    sharp = (await import("sharp")).sharp;
   } catch {
     console.log("⚠️  sharp not installed. Installing...");
     execSync("bun add -d sharp", { stdio: "inherit" });
-    sharp = (await import("sharp")).default;
+    sharp = (await import("sharp")).sharp;
   }
 
   if (!sharp) {
