@@ -206,7 +206,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      statuses: read
+      statuses: write
       checks: read
       actions: read
     steps:
