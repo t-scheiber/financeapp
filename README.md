@@ -90,7 +90,56 @@ Two related routes exist. `/api/cron/user-refresh` refreshes data using each use
 
 ## Deployment
 
-The author's instance runs on a self-hosted Coolify server built with Nixpacks (`nixpacks.toml` installs the compiler toolchain for `better-sqlite3`). The container needs a persistent volume at `/app/data` so the SQLite file survives redeploys. `bun run start` applies the Prisma migrations on every boot. Set `NEXT_PUBLIC_APP_URL` as a build-time variable.
+The author's instance runs on a self-hosted Coolify server, built from the `Dockerfile` in this repository. It replaces the earlier Nixpacks build. The Nixpacks image shipped Bun 1.3.0, which cannot read `bun.lock`, and it had no compiler for `better-sqlite3`.
+
+### Image
+
+The `Dockerfile` has four stages. `toolchain` installs Bun 1.4.0 (the version in `packageManager`, checked with `bun --version`) and `python3`, `make` and `g++` on `node:22.23.5-bookworm-slim`. `prod-deps` and `build` run `bun install --frozen-lockfile`, and `build` then runs `bun run build`. The `runtime` stage starts from the same Node.js image without the compiler or Bun, runs as the `node` user and copies in `.next`, the production `node_modules`, `prisma/` and the generated Prisma client. Its start command does what `bun run start` does: create the data directory, run `prisma migrate deploy`, start `next start`. Nothing in `bun run start` needs Bun at run time, so the image calls `node_modules/.bin/prisma` and `node_modules/.bin/next` directly.
+
+```bash
+docker build --build-arg NEXT_PUBLIC_APP_URL=https://finance.example.com -t financeapp .
+docker run -d --name financeapp -p 3000:3000   -v financeapp-data:/app/data   -e NEXT_PUBLIC_APP_URL=https://finance.example.com   -e AUTH_SECRET=... -e ALLOWED_EMAILS=you@example.com   -e AUTH_GOOGLE_ID=... -e AUTH_GOOGLE_SECRET=...   -e ENCRYPTION_KEY=... -e CRON_SECRET=...   financeapp
+```
+
+The container listens on port 3000. Its health check requests `/auth/signin`, a static page that needs no session. `/api/health` is not used because the proxy redirects anonymous requests to the sign-in page. The image has no `curl`, so leave Coolify's own health check switched off. The `HEALTHCHECK` in the Dockerfile covers it.
+
+### Build arguments
+
+| Argument | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Required. Public base URL. Next.js inlines it into the client JavaScript, so changing it needs a rebuild. It is the only `NEXT_PUBLIC_*` variable in the code |
+
+The build needs no other value. `AUTH_SECRET`, the OAuth credentials and the API keys are not read during `next build`, so none of them is a build argument and none ends up in an image layer. The argument exists only in the build stage. The runtime image does not contain `NEXT_PUBLIC_APP_URL`, so set it again as a run-time variable.
+
+### Run-time variables
+
+Set these on the container, not at build time.
+
+| Variable | Notes |
+| --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Required. The server throws at start if no public URL is set |
+| `AUTH_SECRET` | Required. Better Auth signing secret |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client |
+| `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER`, `APPLE_REDIRECT_URI` | Apple sign-in, optional |
+| `ALLOWED_EMAILS` | Email allowlist |
+| `ENCRYPTION_KEY`, `CRON_SECRET` | Set both |
+| `ALPHA_VANTAGE_API_KEY`, `NEWS_API_KEY`, `HUGGINGFACE_API_KEY` | Shared API keys for the cron refresh |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Alert emails |
+| `DATABASE_URL` | The image sets `file:/app/data/finance.db`. Leave it alone unless you move the volume |
+
+The image also sets `NODE_ENV=production`, `PORT=3000` and `HOSTNAME=0.0.0.0`.
+
+### Data volume
+
+The app opens the SQLite file named by `DATABASE_URL`. The code default, `file:./data/finance.db`, is relative to the working directory. The working directory in the image is `/app`, so the database is `/app/data/finance.db` and the directory `/app/data` is declared as a volume, owned by the `node` user (uid 1000).
+
+Mount a persistent volume on `/app/data`. Without one, the database lives in the container's writable layer and is deleted on every redeploy. When you copy an existing `finance.db` into a new volume, make it readable and writable for uid 1000 (`chown 1000:1000`). SQLite also needs write access to the directory itself, because it creates journal files next to the database.
+
+On each start the container runs `prisma migrate deploy`. On a database that is up to date it logs `No pending migrations to apply.`
+
+### CI
+
+`.github/workflows/docker-build.yml` builds the image on every pull request and on pushes to `main`, using dummy values only. It starts a container on a named volume, waits for the health check, requests `/auth/signin`, writes a marker row into the database, stops the container, starts a second one on the same volume and checks that the marker survived and that no migration was pending.
 
 Vercel is a poor fit because SQLite needs a writable, persistent filesystem.
 
@@ -104,6 +153,7 @@ lib/auth.ts     Better Auth configuration and the email allowlist check
 prisma/         schema.prisma and the migration history
 proxy.ts        Redirects unauthenticated requests to /auth/signin
 scripts/        Apple secret generator, PWA icon generator, data directory setup
+Dockerfile      Production image (see Deployment)
 ```
 
 ## License

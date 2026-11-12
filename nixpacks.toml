@@ -1,6 +1,0 @@
-# Pin the runtime. Without this, Nixpacks falls back to Node.js 18 when it does
-# not know the requested version, and Node.js 18 has been removed from nixpkgs.
-# better-sqlite3 compiles native bindings during install, so the build tools stay.
-[phases.setup]
-nixPkgs = ["nodejs_22", "bun"]
-aptPkgs = ["build-essential", "python3"]
