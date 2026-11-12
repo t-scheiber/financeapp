@@ -20,7 +20,7 @@ export interface NotificationData {
 /**
  * Create email transporter using environment variables
  */
-function createTransporter(): nodemailer.Transporter {
+function createTransporter(): ReturnType<typeof nodemailer.createTransport> {
   const config: EmailConfig = {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587", 10),
