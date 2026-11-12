@@ -1,6 +1,6 @@
 # FinanceApp
 
-A Next.js dashboard that tracks stock prices and company news, scores each news article for sentiment, and sends email alerts when a price crosses a threshold. The author runs one private instance for personal use. Sign-in is limited to an email allowlist, so there is no public demo.
+A Next.js dashboard that tracks stock prices and company news, scores each news article for sentiment, and sends email alerts when a price crosses a threshold. I run one private instance for my own use. Sign-in is limited to an email allowlist, so there is no public demo.
 
 ## What it does
 
