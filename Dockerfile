@@ -55,7 +55,9 @@ ARG NEXT_PUBLIC_APP_URL
 RUN test -n "$NEXT_PUBLIC_APP_URL" \
  || { echo "NEXT_PUBLIC_APP_URL build argument is required" >&2; exit 1; }
 # "bun run build" is "bunx prisma generate && next build --turbopack".
-RUN bun run build
+# .next/cache is the build cache (about 120 MB). The runtime does not need it,
+# and Next.js recreates it on demand.
+RUN bun run build && rm -rf .next/cache
 
 # ---------------------------------------------------------------------------
 # runtime: no compiler, no Bun, non-root.
