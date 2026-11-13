@@ -172,9 +172,10 @@ export async function buildEfficientFrontier(portfolioId: string): Promise<{
       holding.returns.length > 0 ? total / holding.returns.length : 0;
   });
 
-  const covarianceMatrix: number[][] = [];
+  // Create every row first: the inner loop also writes covarianceMatrix[j][i]
+  // for rows j > i.
+  const covarianceMatrix: number[][] = processedHoldings.map(() => []);
   for (let i = 0; i < processedHoldings.length; i++) {
-    covarianceMatrix[i] = [];
     const variance = computeVariance(
       processedHoldings[i].returns.map((entry) => entry.value),
     );

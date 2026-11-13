@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { signIn, useSession } from "@/lib/auth-client";
+import { authClient, signIn, useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Eye, Loader2 } from "lucide-react";
+import { DEMO_SIGN_IN_PATH } from "@/lib/demo/config";
 
 // SVG icons for sign-in providers
 function GoogleIcon({ className }: { className?: string }) {
@@ -28,7 +29,11 @@ function AppleIcon({ className }: { className?: string }) {
 
 export default function SignIn() {
   const { data: session, isPending } = useSession();
-  const [isSigningIn, setIsSigningIn] = useState<"google" | "apple" | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState<
+    "google" | "apple" | "demo" | null
+  >(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const demoAutoStarted = useRef(false);
 
   // Check if we're in production (Apple Sign-In only works with real domains)
   const isProduction =
@@ -50,6 +55,30 @@ export default function SignIn() {
       callbackURL: "/",
     });
   };
+
+  const handleDemoSignIn = useCallback(async () => {
+    setIsSigningIn("demo");
+    setDemoError(null);
+    const { error } = await authClient.$fetch(DEMO_SIGN_IN_PATH, {
+      method: "POST",
+      body: {},
+    });
+    if (error) {
+      setDemoError(error.message ?? "Could not start the demo. Try again.");
+      setIsSigningIn(null);
+      return;
+    }
+    window.location.href = "/";
+  }, []);
+
+  // /auth/signin?demo=1 starts the demo straight away, for links from elsewhere.
+  useEffect(() => {
+    if (isPending || session?.user || demoAutoStarted.current) return;
+    if (new URLSearchParams(window.location.search).get("demo") === "1") {
+      demoAutoStarted.current = true;
+      void handleDemoSignIn();
+    }
+  }, [isPending, session, handleDemoSignIn]);
 
   const handleAppleSignIn = async () => {
     setIsSigningIn("apple");
@@ -165,10 +194,39 @@ export default function SignIn() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-3 text-muted-foreground/70">
-                Secure authentication
+                No account?
               </span>
             </div>
           </div>
+
+          <div className="rounded-xl border border-accent/40 bg-accent/5 p-4">
+            <Button
+              onClick={handleDemoSignIn}
+              disabled={isSigningIn !== null}
+              variant="secondary"
+              className="w-full h-12 flex items-center justify-center gap-3 rounded-xl text-sm font-medium"
+            >
+              {isSigningIn === "demo" ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+              Try the demo
+            </Button>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Opens a shared, read-only demo account with sample data. Prices
+              are generated and the news items are fictional.
+            </p>
+            {demoError ? (
+              <p role="alert" className="mt-2 text-center text-xs text-destructive">
+                {demoError}
+              </p>
+            ) : null}
+          </div>
+
+          <p className="pt-2 text-center text-xs text-muted-foreground/70">
+            Google and Apple sign-in are limited to an allowlist.
+          </p>
 
           <div className="flex justify-center gap-6 text-xs text-muted-foreground">
             <a

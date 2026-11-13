@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { isDemoRequest, prisma } from "@/lib/db";
 import { getServerSession } from "@/lib/auth-server";
 import { resolveSymbolFromIsin } from "@/lib/services/company-resolver";
 import { FinancialAPI } from "@/lib/services/financial-api";
@@ -78,6 +78,16 @@ export async function GET(request: NextRequest) {
       }
 
       let stockPrice = company.stockPrices[0] ?? null;
+
+      // The demo account only reads stored sample prices.
+      if (await isDemoRequest()) {
+        return stockPrice
+          ? NextResponse.json(stockPrice)
+          : NextResponse.json(
+              { error: "No stored price for this symbol" },
+              { status: 404 },
+            );
+      }
 
       if (refresh || !stockPrice) {
         // Determine which symbol to use for API calls

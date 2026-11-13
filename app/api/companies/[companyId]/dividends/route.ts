@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
-import { prisma } from "@/lib/db";
+import { isDemoRequest, prisma } from "@/lib/db";
 import { resolveSymbolFromIsin } from "@/lib/services/company-resolver";
 import { FinancialAPI } from "@/lib/services/financial-api";
 import { getUserApiKey } from "@/lib/services/user-api-keys";
@@ -46,6 +46,16 @@ export async function GET(
         dividends: [],
         info: "Dividend lookups are skipped for ETFs because payouts vary by fund provider.",
       });
+    }
+
+    // The demo account reads the stored sample dividends instead of calling
+    // Alpha Vantage.
+    if (await isDemoRequest()) {
+      const dividends = await prisma.dividend.findMany({
+        where: { companyId: company.id },
+        orderBy: { exDividendDate: "desc" },
+      });
+      return NextResponse.json({ dividends });
     }
 
     const alphaKey =

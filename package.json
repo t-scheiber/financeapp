@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "bunx prisma generate && next build --turbopack",
-    "start": "node scripts/ensure-data-dir.mjs && bunx prisma migrate deploy && next start",
+    "start": "node scripts/ensure-data-dir.mjs && bunx prisma migrate deploy && node scripts/migrate-demo-db.mjs && next start",
+    "db:migrate": "bunx prisma migrate deploy && node scripts/migrate-demo-db.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "eslint . --ext .ts,.tsx --fix"

@@ -8,6 +8,7 @@ import { signOut, useSession } from "@/lib/auth-client";
 import { useState } from "react";
 import { DesignControlsTrigger } from "@/components/design-controls";
 import { Button } from "@/components/ui/button";
+import { isDemoEmail } from "@/lib/demo/config";
 
 const AUTHENTICATED_NAVIGATION = [
   { href: "/settings", label: "Settings" },
@@ -21,6 +22,7 @@ const PUBLIC_NAVIGATION = [
 export function Header() {
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isDemo = isDemoEmail(session?.user?.email);
 
   const navigation = session 
     ? [...AUTHENTICATED_NAVIGATION, ...PUBLIC_NAVIGATION]
@@ -47,6 +49,14 @@ export function Header() {
             </span>
             FinanceApp
           </Link>
+          {isDemo && (
+            <span
+              className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent"
+              title="Shared demo account. Sample data, changes are disabled."
+            >
+              Demo, read-only
+            </span>
+          )}
           {session && (
             <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
               {navigation.map((item) => (
