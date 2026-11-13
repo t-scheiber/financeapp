@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 import { isDemoSessionToken } from "@/lib/db";
 import { DEMO_READ_ONLY_MESSAGE, readSessionToken } from "@/lib/demo/config";
 
@@ -35,6 +36,19 @@ async function isBlockedDemoRequest(req: NextRequest): Promise<boolean> {
   return isDemoSessionToken(token);
 }
 
+async function hasValidSession(req: NextRequest): Promise<boolean> {
+  const sessionCookie =
+    req.cookies.get(SESSION_COOKIE_NAME) ??
+    req.cookies.get(SECURE_SESSION_COOKIE_NAME);
+  if (!sessionCookie) return false;
+  try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    return !!session?.user;
+  } catch {
+    return false;
+  }
+}
+
 export default async function proxy(req: NextRequest) {
   if (await isBlockedDemoRequest(req)) {
     return NextResponse.json(
@@ -43,11 +57,6 @@ export default async function proxy(req: NextRequest) {
     );
   }
 
-  // Check if the session cookie exists (including secure cookies in production)
-  const sessionCookie =
-    req.cookies.get(SESSION_COOKIE_NAME) ??
-    req.cookies.get(SECURE_SESSION_COOKIE_NAME);
-  const isLoggedIn = !!sessionCookie;
   const pathname = req.nextUrl.pathname;
 
   // Public routes that don't require authentication
@@ -77,8 +86,12 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protect all other routes - redirect to sign in if not authenticated
-  if (!isLoggedIn) {
+  // Protect all other routes. A cookie alone is not enough: the session it
+  // names has to exist and be unexpired, or a made-up cookie would pass.
+  if (!(await hasValidSession(req))) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/auth/signin", req.url));
   }
 
