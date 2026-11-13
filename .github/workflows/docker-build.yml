@@ -1,0 +1,185 @@
+name: Docker build
+
+# Builds the image and starts it twice on the same volume. No secret is used:
+# every value below is a dummy, and nothing contacts a market, news or AI API.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: financeapp:ci
+      VOLUME: financeapp-ci-data
+      DATA_DIR: /app/data
+      DB_FILE: /app/data/finance.db
+      APP_URL: https://finance.example.com
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Write shell helpers
+        run: |
+          cat > "$RUNNER_TEMP/helpers.sh" <<'EOF'
+          # Start a container on the named volume with dummy run-time variables.
+          start_container() {
+            docker run -d --name "$1" \
+              -v "$VOLUME:$DATA_DIR" \
+              -p 3000:3000 \
+              -e NEXT_PUBLIC_APP_URL="$APP_URL" \
+              -e AUTH_SECRET=ci-dummy-secret-0123456789abcdef0123456789abcdef \
+              -e AUTH_GOOGLE_ID=ci-dummy-google-id \
+              -e AUTH_GOOGLE_SECRET=ci-dummy-google-secret \
+              -e ENCRYPTION_KEY=ci-dummy-encryption-key \
+              -e CRON_SECRET=ci-dummy-cron-secret \
+              -e ALLOWED_EMAILS=ci@example.com \
+              "$IMAGE"
+          }
+
+          # Wait for the Docker health check to report healthy, up to 180 seconds.
+          wait_healthy() {
+            for i in $(seq 1 90); do
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$1")"
+              running="$(docker inspect --format '{{.State.Running}}' "$1")"
+              echo "[$i] $1 health=$status running=$running"
+              if [ "$status" = "healthy" ]; then return 0; fi
+              if [ "$running" != "true" ] || [ "$status" = "unhealthy" ]; then return 1; fi
+              sleep 2
+            done
+            echo "Timed out waiting for $1 to become healthy" >&2
+            return 1
+          }
+
+          # Request the sign-in page and require HTTP 200.
+          assert_signin_page() {
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/auth/signin)"
+            echo "GET /auth/signin returned $code"
+            [ "$code" = "200" ]
+          }
+          EOF
+
+      - name: Build the image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_APP_URL="$APP_URL" \
+            --tag "$IMAGE" \
+            .
+
+      - name: Print the image size
+        run: |
+          bytes="$(docker image inspect --format '{{.Size}}' "$IMAGE")"
+          mb=$((bytes / 1024 / 1024))
+          echo "Image $IMAGE is $bytes bytes ($mb MiB)"
+          docker image ls "$IMAGE"
+          echo "Image $IMAGE is $mb MiB ($bytes bytes)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the image configuration
+        run: |
+          user="$(docker image inspect --format '{{.Config.User}}' "$IMAGE")"
+          volumes="$(docker image inspect --format '{{json .Config.Volumes}}' "$IMAGE")"
+          healthcheck="$(docker image inspect --format '{{json .Config.Healthcheck}}' "$IMAGE")"
+          env_list="$(docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$IMAGE")"
+          echo "user=$user"
+          echo "volumes=$volumes"
+          echo "healthcheck=$healthcheck"
+          [ "$user" = "node" ]
+          grep -q '"/app/data"' <<<"$volumes"
+          grep -q '/auth/signin' <<<"$healthcheck"
+          # The build argument must not be part of the runtime environment.
+          if grep -q '^NEXT_PUBLIC_APP_URL=' <<<"$env_list"; then
+            echo "NEXT_PUBLIC_APP_URL leaked into the runtime image environment" >&2
+            exit 1
+          fi
+          # No compiler toolchain in the runtime image.
+          for tool in g++ make python3 bun; do
+            if docker run --rm --entrypoint sh "$IMAGE" -c "command -v $tool" >/dev/null 2>&1; then
+              echo "$tool is present in the runtime image" >&2
+              exit 1
+            fi
+          done
+
+      - name: First start on an empty volume
+        run: |
+          source "$RUNNER_TEMP/helpers.sh"
+          docker volume create "$VOLUME"
+          start_container financeapp-1
+          wait_healthy financeapp-1
+          assert_signin_page
+          test "$(docker exec financeapp-1 id -u)" != "0"
+          docker exec financeapp-1 ls -l "$DB_FILE"
+          size="$(docker exec financeapp-1 stat -c %s "$DB_FILE")"
+          echo "database file is $size bytes"
+          [ "$size" -gt 0 ]
+          docker logs financeapp-1 > first-start.log 2>&1
+          echo "--- first start log"
+          cat first-start.log
+          grep -q 'successfully applied' first-start.log
+
+      - name: Write a marker row into the database
+        run: |
+          docker exec -i financeapp-1 node - <<'EOF'
+          const Database = require("better-sqlite3");
+          const db = new Database(process.env.DATABASE_URL.replace(/^file:/, ""));
+          db.exec("CREATE TABLE IF NOT EXISTS ci_marker (value TEXT NOT NULL)");
+          db.prepare("INSERT INTO ci_marker (value) VALUES (?)").run("survived");
+          const applied = db.prepare("SELECT COUNT(*) AS n FROM _prisma_migrations WHERE finished_at IS NOT NULL").get().n;
+          console.log("applied migrations:", applied);
+          if (applied < 1) process.exit(1);
+          db.close();
+          EOF
+
+      - name: Stop the first container
+        run: |
+          docker stop financeapp-1
+          docker ps -a --filter name=financeapp-1
+
+      - name: Second start on the same volume
+        run: |
+          source "$RUNNER_TEMP/helpers.sh"
+          start_container financeapp-2
+          wait_healthy financeapp-2
+          assert_signin_page
+          docker logs financeapp-2 > second-start.log 2>&1
+          echo "--- second start log"
+          cat second-start.log
+          grep -q 'No pending migrations to apply' second-start.log
+          docker exec financeapp-2 ls -l "$DB_FILE"
+
+      - name: Check the database survived the restart
+        run: |
+          docker exec -i financeapp-2 node - <<'EOF'
+          const Database = require("better-sqlite3");
+          const db = new Database(process.env.DATABASE_URL.replace(/^file:/, ""), { readonly: true });
+          const row = db.prepare("SELECT value FROM ci_marker").get();
+          console.log("marker row:", row);
+          if (!row || row.value !== "survived") process.exit(1);
+          db.close();
+          EOF
+
+      - name: Print container logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          for name in financeapp-1 financeapp-2; do
+            echo "::group::logs of $name"
+            docker logs "$name" 2>&1 || true
+            echo "::endgroup::"
+            echo "::group::health of $name"
+            docker inspect --format '{{json .State.Health}}' "$name" 2>&1 || true
+            echo "::endgroup::"
+          done
+          docker image ls "$IMAGE" || true
+          docker run --rm -v "$VOLUME:/data" --entrypoint ls "$IMAGE" -la /data || true

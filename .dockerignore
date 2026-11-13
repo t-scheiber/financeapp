@@ -1,0 +1,41 @@
+node_modules
+.next
+out
+build
+coverage
+.git
+.github
+.vscode
+.claude
+.cursor
+.gemini
+.chatgpt
+
+# local state and secrets
+data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.pem
+*.p8
+
+# generated, rebuilt inside the image
+lib/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# not needed to build or run
+Dockerfile
+.dockerignore
+README.md
+LICENSE
+.DS_Store
