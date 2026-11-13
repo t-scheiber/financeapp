@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware, APIError } from "better-auth/api";
-import { prisma } from "@/lib/db";
+import { basePrisma as prisma } from "@/lib/db";
+import { demoSignIn } from "@/lib/demo/auth-plugin";
 
 function normaliseUrl(input?: string | null) {
   if (!input) return null;
@@ -126,6 +127,7 @@ export const auth = betterAuth({
       path: "/",
     },
   },
+  plugins: [demoSignIn()],
   rateLimit: {
     // Enable rate limiting in production
     enabled: isSecureEnvironment,

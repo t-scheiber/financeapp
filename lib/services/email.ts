@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { isDemoEmail } from "@/lib/demo/config";
 
 interface EmailConfig {
   host: string;
@@ -44,6 +45,11 @@ export async function sendEmailNotification(
   text?: string,
 ): Promise<boolean> {
   try {
+    // Never send mail for the demo account.
+    if (isDemoEmail(to)) {
+      return false;
+    }
+
     // Check if email service is configured
     if (
       !process.env.SMTP_HOST ||

@@ -72,7 +72,8 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1 \
-    DATABASE_URL=file:/app/data/finance.db
+    DATABASE_URL=file:/app/data/finance.db \
+    DEMO_DATABASE_URL=file:/app/data/demo.db
 
 WORKDIR /app
 # Create the data directory before VOLUME so a fresh volume inherits the owner.
@@ -80,7 +81,7 @@ RUN mkdir -p /app/data && chown node:node /app /app/data
 
 COPY --chown=node:node package.json next.config.ts prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
-COPY --chown=node:node scripts/ensure-data-dir.mjs ./scripts/ensure-data-dir.mjs
+COPY --chown=node:node scripts/ensure-data-dir.mjs scripts/migrate-demo-db.mjs ./scripts/
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/lib/generated ./lib/generated
@@ -97,6 +98,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/auth/signin').then(r=>process.exit(r.status===200?0:1),()=>process.exit(1))"]
 
 # Same steps as "bun run start" (package.json): create the data directory, apply
-# pending migrations, start Next.js. The Prisma CLI and Next.js run from
+# pending migrations to the real database and to the demo database
+# (/app/data/demo.db), start Next.js. The Prisma CLI and Next.js run from
 # node_modules because the image has no Bun. exec lets Next.js receive SIGTERM.
-CMD ["sh", "-c", "node scripts/ensure-data-dir.mjs && node_modules/.bin/prisma migrate deploy && exec node_modules/.bin/next start"]
+CMD ["sh", "-c", "node scripts/ensure-data-dir.mjs && node_modules/.bin/prisma migrate deploy && node scripts/migrate-demo-db.mjs && exec node_modules/.bin/next start"]
